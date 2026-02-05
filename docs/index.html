@@ -4,50 +4,995 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VN Stock Sniper Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background-color: #0d1117;
-            color: #e6edf3;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            text-align: center;
-        }
-        .container {
-            max-width: 600px;
-            padding: 40px;
-        }
-        h1 {
-            font-size: 3rem;
-            margin-bottom: 20px;
-        }
-        p {
-            font-size: 1.2rem;
-            color: #8b949e;
-            margin-bottom: 30px;
-        }
-        .btn {
-            background-color: #238636;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: 600;
-        }
-        .btn:hover {
-            background-color: #2ea043;
-        }
+        :root { --bg-dark: #0d1117; --bg-card: #161b22; --border-color: #30363d; --text-primary: #e6edf3; --text-secondary: #8b949e; --green: #3fb950; --red: #f85149; --yellow: #d29922; --blue: #58a6ff; }
+        body { background-color: var(--bg-dark); color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        .card { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; margin-bottom: 20px; }
+        .card-header { background-color: transparent; border-bottom: 1px solid var(--border-color); font-weight: 600; font-size: 1.1rem; }
+        .stat-card { text-align: center; padding: 20px; }
+        .stat-number { font-size: 2.5rem; font-weight: 700; }
+        .stat-label { color: var(--text-secondary); font-size: 0.9rem; }
+        .green { color: var(--green); } .red { color: var(--red); } .yellow { color: var(--yellow); } .blue { color: var(--blue); }
+        .channel-green { background-color: rgba(63, 185, 80, 0.2); color: var(--green); padding: 4px 8px; border-radius: 4px; }
+        .channel-gray { background-color: rgba(139, 148, 158, 0.2); color: var(--text-secondary); padding: 4px 8px; border-radius: 4px; }
+        .channel-red { background-color: rgba(248, 81, 73, 0.2); color: var(--red); padding: 4px 8px; border-radius: 4px; }
+        .signal-badge { padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; }
+        .signal-breakout { background-color: var(--green); color: #000; }
+        .signal-momentum { background-color: var(--blue); color: #000; }
+        .signal-pullback { background-color: var(--yellow); color: #000; }
+        .signal-reversal { background-color: #a371f7; color: #000; }
+        .stars { color: #d29922; font-size: 1.1rem; }
+        table { color: var(--text-primary) !important; }
+        table thead th { background-color: var(--bg-card) !important; color: var(--text-primary) !important; border-color: var(--border-color) !important; }
+        table tbody td { border-color: var(--border-color) !important; }
+        .dataTables_wrapper .dataTables_filter input, .dataTables_wrapper .dataTables_length select { background-color: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color); }
+        .dataTables_wrapper .dataTables_info, .dataTables_wrapper .dataTables_paginate { color: var(--text-secondary) !important; }
+        .page-link { background-color: var(--bg-card); color: var(--text-primary); border-color: var(--border-color); }
+        .ai-report { background-color: var(--bg-card); padding: 20px; border-radius: 12px; white-space: pre-wrap; font-family: inherit; line-height: 1.8; }
+        .indicator-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+        .indicator-item { background-color: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; text-align: center; }
+        .indicator-label { font-size: 0.8rem; color: var(--text-secondary); }
+        .indicator-value { font-size: 1.2rem; font-weight: 600; }
+        .nav-tabs .nav-link { color: var(--text-secondary); border: none; }
+        .nav-tabs .nav-link.active { background-color: var(--bg-card); color: var(--text-primary); border-bottom: 2px solid var(--blue); }
+        .portfolio-card { border-left: 4px solid var(--blue); }
+        .pnl-positive { color: var(--green); } .pnl-negative { color: var(--red); }
+        @media (max-width: 768px) { .stat-number { font-size: 1.8rem; } .container { padding: 10px; } }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>📊 VN Stock Sniper</h1>
-        <p>Dashboard chưa được tạo. Vui lòng chạy workflow để tạo dashboard.</p>
-        <p>Vào tab <strong>Actions</strong> → <strong>Run workflow</strong></p>
-        <a href="https://github.com" class="btn">Quay lại GitHub</a>
+    <div class="container-fluid py-4">
+        <div class="text-center mb-4">
+            <h1>VN Stock Sniper Dashboard</h1>
+            <p class="text-secondary">Cap nhat: 05/02/2026 | Phan tich 70 ma co phieu</p>
+        </div>
+        
+        <div class="row mb-4">
+            <div class="col-6 col-md-3"><div class="card stat-card"><div class="stat-number green">44</div><div class="stat-label">Kenh Xanh (62.9%)</div></div></div>
+            <div class="col-6 col-md-3"><div class="card stat-card"><div class="stat-number" style="color: var(--text-secondary)">4</div><div class="stat-label">Kenh Xam (5.7%)</div></div></div>
+            <div class="col-6 col-md-3"><div class="card stat-card"><div class="stat-number red">22</div><div class="stat-label">Kenh Do (31.4%)</div></div></div>
+            <div class="col-6 col-md-3"><div class="card stat-card"><div class="stat-number yellow">7</div><div class="stat-label">Tin hieu MUA</div></div></div>
+        </div>
+        
+        <div class="row mb-4">
+            <div class="col-6 col-md-3"><div class="card stat-card"><div class="stat-number" style="color: #d29922">2</div><div class="stat-label">5 Sao</div></div></div>
+            <div class="col-6 col-md-3"><div class="card stat-card"><div class="stat-number blue">8</div><div class="stat-label">4 Sao</div></div></div>
+            <div class="col-6 col-md-6"><div class="card stat-card"><canvas id="channelChart" height="100"></canvas></div></div>
+        </div>
+        
+        <ul class="nav nav-tabs mb-4" id="mainTabs">
+            <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#signals">Tin hieu MUA</a></li>
+            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#ranking">Bang xep hang</a></li>
+            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#portfolio">Portfolio</a></li>
+            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#ai-report">AI Report</a></li>
+        </ul>
+        
+        <div class="tab-content">
+            <div class="tab-pane fade show active" id="signals">
+                <div class="card">
+                    <div class="card-header">Tin hieu MUA hom nay (7 tin hieu)</div>
+                    <div class="card-body"><div class="row">
+            <div class="col-md-6 col-lg-4 mb-3">
+                <div class="card h-100" style="cursor: pointer;" onclick="showStockDetail('MSH')">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="mb-0">MSH</h5>
+                            <span class="signal-badge signal-breakout">BREAKOUT</span>
+                        </div>
+                        <div class="stars mb-2">⭐⭐⭐⭐⭐</div>
+                        <div class="row text-center mb-3">
+                            <div class="col-4"><div class="text-secondary small">Gia</div><div class="fw-bold">40</div></div>
+                            <div class="col-4"><div class="text-secondary small">Q/M</div><div class="fw-bold">15/10</div></div>
+                            <div class="col-4"><div class="text-secondary small">RSI</div><div class="fw-bold">63.1</div></div>
+                        </div>
+                        <div class="small">
+                            <div class="d-flex justify-content-between"><span>Entry:</span><span class="fw-bold">40</span></div>
+                            <div class="d-flex justify-content-between"><span>Stop Loss:</span><span class="red">37 (-7.4%)</span></div>
+                            <div class="d-flex justify-content-between"><span>Target 1:</span><span class="green">44 (+10.1%)</span></div>
+                            <div class="d-flex justify-content-between"><span>Target 2:</span><span class="green">46 (+15.1%)</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4 mb-3">
+                <div class="card h-100" style="cursor: pointer;" onclick="showStockDetail('DCM')">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="mb-0">DCM</h5>
+                            <span class="signal-badge signal-momentum">MOMENTUM</span>
+                        </div>
+                        <div class="stars mb-2">⭐⭐⭐⭐⭐</div>
+                        <div class="row text-center mb-3">
+                            <div class="col-4"><div class="text-secondary small">Gia</div><div class="fw-bold">39</div></div>
+                            <div class="col-4"><div class="text-secondary small">Q/M</div><div class="fw-bold">13/7</div></div>
+                            <div class="col-4"><div class="text-secondary small">RSI</div><div class="fw-bold">66.2</div></div>
+                        </div>
+                        <div class="small">
+                            <div class="d-flex justify-content-between"><span>Entry:</span><span class="fw-bold">39</span></div>
+                            <div class="d-flex justify-content-between"><span>Stop Loss:</span><span class="red">36 (-7.6%)</span></div>
+                            <div class="d-flex justify-content-between"><span>Target 1:</span><span class="green">43 (+10.4%)</span></div>
+                            <div class="d-flex justify-content-between"><span>Target 2:</span><span class="green">46 (+18.1%)</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4 mb-3">
+                <div class="card h-100" style="cursor: pointer;" onclick="showStockDetail('HDB')">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="mb-0">HDB</h5>
+                            <span class="signal-badge signal-pullback">PULLBACK</span>
+                        </div>
+                        <div class="stars mb-2">⭐⭐</div>
+                        <div class="row text-center mb-3">
+                            <div class="col-4"><div class="text-secondary small">Gia</div><div class="fw-bold">27</div></div>
+                            <div class="col-4"><div class="text-secondary small">Q/M</div><div class="fw-bold">12/1</div></div>
+                            <div class="col-4"><div class="text-secondary small">RSI</div><div class="fw-bold">40.2</div></div>
+                        </div>
+                        <div class="small">
+                            <div class="d-flex justify-content-between"><span>Entry:</span><span class="fw-bold">27</span></div>
+                            <div class="d-flex justify-content-between"><span>Stop Loss:</span><span class="red">26 (-4.9%)</span></div>
+                            <div class="d-flex justify-content-between"><span>Target 1:</span><span class="green">30 (+9.7%)</span></div>
+                            <div class="d-flex justify-content-between"><span>Target 2:</span><span class="green">32 (+17.0%)</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4 mb-3">
+                <div class="card h-100" style="cursor: pointer;" onclick="showStockDetail('TCB')">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="mb-0">TCB</h5>
+                            <span class="signal-badge signal-pullback">PULLBACK</span>
+                        </div>
+                        <div class="stars mb-2">⭐⭐</div>
+                        <div class="row text-center mb-3">
+                            <div class="col-4"><div class="text-secondary small">Gia</div><div class="fw-bold">35</div></div>
+                            <div class="col-4"><div class="text-secondary small">Q/M</div><div class="fw-bold">10/3</div></div>
+                            <div class="col-4"><div class="text-secondary small">RSI</div><div class="fw-bold">43.4</div></div>
+                        </div>
+                        <div class="small">
+                            <div class="d-flex justify-content-between"><span>Entry:</span><span class="fw-bold">35</span></div>
+                            <div class="d-flex justify-content-between"><span>Stop Loss:</span><span class="red">33 (-5.4%)</span></div>
+                            <div class="d-flex justify-content-between"><span>Target 1:</span><span class="green">38 (+8.9%)</span></div>
+                            <div class="d-flex justify-content-between"><span>Target 2:</span><span class="green">39 (+11.7%)</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4 mb-3">
+                <div class="card h-100" style="cursor: pointer;" onclick="showStockDetail('FPT')">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="mb-0">FPT</h5>
+                            <span class="signal-badge signal-pullback">PULLBACK</span>
+                        </div>
+                        <div class="stars mb-2">⭐⭐</div>
+                        <div class="row text-center mb-3">
+                            <div class="col-4"><div class="text-secondary small">Gia</div><div class="fw-bold">99</div></div>
+                            <div class="col-4"><div class="text-secondary small">Q/M</div><div class="fw-bold">11/0</div></div>
+                            <div class="col-4"><div class="text-secondary small">RSI</div><div class="fw-bold">37.7</div></div>
+                        </div>
+                        <div class="small">
+                            <div class="d-flex justify-content-between"><span>Entry:</span><span class="fw-bold">99</span></div>
+                            <div class="d-flex justify-content-between"><span>Stop Loss:</span><span class="red">93 (-6.4%)</span></div>
+                            <div class="d-flex justify-content-between"><span>Target 1:</span><span class="green">109 (+9.7%)</span></div>
+                            <div class="d-flex justify-content-between"><span>Target 2:</span><span class="green">116 (+16.7%)</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4 mb-3">
+                <div class="card h-100" style="cursor: pointer;" onclick="showStockDetail('VIC')">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="mb-0">VIC</h5>
+                            <span class="signal-badge signal-pullback">PULLBACK</span>
+                        </div>
+                        <div class="stars mb-2">⭐⭐</div>
+                        <div class="row text-center mb-3">
+                            <div class="col-4"><div class="text-secondary small">Gia</div><div class="fw-bold">127</div></div>
+                            <div class="col-4"><div class="text-secondary small">Q/M</div><div class="fw-bold">8/2</div></div>
+                            <div class="col-4"><div class="text-secondary small">RSI</div><div class="fw-bold">21.5</div></div>
+                        </div>
+                        <div class="small">
+                            <div class="d-flex justify-content-between"><span>Entry:</span><span class="fw-bold">127</span></div>
+                            <div class="d-flex justify-content-between"><span>Stop Loss:</span><span class="red">111 (-12.6%)</span></div>
+                            <div class="d-flex justify-content-between"><span>Target 1:</span><span class="green">150 (+18.1%)</span></div>
+                            <div class="d-flex justify-content-between"><span>Target 2:</span><span class="green">166 (+30.7%)</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4 mb-3">
+                <div class="card h-100" style="cursor: pointer;" onclick="showStockDetail('VHM')">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="mb-0">VHM</h5>
+                            <span class="signal-badge signal-pullback">PULLBACK</span>
+                        </div>
+                        <div class="stars mb-2">⭐⭐</div>
+                        <div class="row text-center mb-3">
+                            <div class="col-4"><div class="text-secondary small">Gia</div><div class="fw-bold">96</div></div>
+                            <div class="col-4"><div class="text-secondary small">Q/M</div><div class="fw-bold">8/2</div></div>
+                            <div class="col-4"><div class="text-secondary small">RSI</div><div class="fw-bold">21.1</div></div>
+                        </div>
+                        <div class="small">
+                            <div class="d-flex justify-content-between"><span>Entry:</span><span class="fw-bold">96</span></div>
+                            <div class="d-flex justify-content-between"><span>Stop Loss:</span><span class="red">83 (-13.5%)</span></div>
+                            <div class="d-flex justify-content-between"><span>Target 1:</span><span class="green">115 (+19.8%)</span></div>
+                            <div class="d-flex justify-content-between"><span>Target 2:</span><span class="green">128 (+33.3%)</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div></div></div>
+                </div>
+            </div>
+            
+            <div class="tab-pane fade" id="ranking">
+                <div class="card">
+                    <div class="card-header">Top 50 Co phieu theo diem</div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table id="stockTable" class="table table-dark table-striped">
+                                <thead><tr><th>#</th><th>Ma</th><th>Gia</th><th>Q</th><th>M</th><th>Sao</th><th>Tin hieu</th><th>Kenh</th><th>RSI</th><th>MFI</th><th>Vol%</th></tr></thead>
+                                <tbody>
+            <tr onclick="showStockDetail('MSH')" style="cursor: pointer;">
+                <td>1</td>
+                <td><strong>MSH</strong></td>
+                <td>40</td>
+                <td>15</td>
+                <td>10</td>
+                <td class="stars">⭐⭐⭐⭐⭐</td>
+                <td><span class="signal-badge signal-breakout">BREAKOUT</span></td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">63.1</td>
+                <td>72.3</td>
+                <td class="green">1.7x</td>
+            </tr>
+            <tr onclick="showStockDetail('MBB')" style="cursor: pointer;">
+                <td>2</td>
+                <td><strong>MBB</strong></td>
+                <td>28</td>
+                <td>18</td>
+                <td>4</td>
+                <td class="stars">⭐⭐⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">58.9</td>
+                <td>69.7</td>
+                <td class="">0.2x</td>
+            </tr>
+            <tr onclick="showStockDetail('BVH')" style="cursor: pointer;">
+                <td>3</td>
+                <td><strong>BVH</strong></td>
+                <td>80</td>
+                <td>17</td>
+                <td>4</td>
+                <td class="stars">⭐⭐⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">59.9</td>
+                <td>66.2</td>
+                <td class="">0.2x</td>
+            </tr>
+            <tr onclick="showStockDetail('VHC')" style="cursor: pointer;">
+                <td>4</td>
+                <td><strong>VHC</strong></td>
+                <td>65</td>
+                <td>16</td>
+                <td>5</td>
+                <td class="stars">⭐⭐⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">59.6</td>
+                <td>72.5</td>
+                <td class="">1.2x</td>
+            </tr>
+            <tr onclick="showStockDetail('DCM')" style="cursor: pointer;">
+                <td>5</td>
+                <td><strong>DCM</strong></td>
+                <td>39</td>
+                <td>13</td>
+                <td>7</td>
+                <td class="stars">⭐⭐⭐⭐⭐</td>
+                <td><span class="signal-badge signal-momentum">MOMENTUM</span></td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">66.2</td>
+                <td>82.2</td>
+                <td class="">0.9x</td>
+            </tr>
+            <tr onclick="showStockDetail('DPM')" style="cursor: pointer;">
+                <td>6</td>
+                <td><strong>DPM</strong></td>
+                <td>25</td>
+                <td>16</td>
+                <td>4</td>
+                <td class="stars">⭐⭐⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">59.0</td>
+                <td>78.7</td>
+                <td class="">0.9x</td>
+            </tr>
+            <tr onclick="showStockDetail('PHR')" style="cursor: pointer;">
+                <td>7</td>
+                <td><strong>PHR</strong></td>
+                <td>65</td>
+                <td>18</td>
+                <td>2</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">48.2</td>
+                <td>50.1</td>
+                <td class="">0.4x</td>
+            </tr>
+            <tr onclick="showStockDetail('DBC')" style="cursor: pointer;">
+                <td>8</td>
+                <td><strong>DBC</strong></td>
+                <td>29</td>
+                <td>15</td>
+                <td>4</td>
+                <td class="stars">⭐⭐⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">57.4</td>
+                <td>66.0</td>
+                <td class="">0.8x</td>
+            </tr>
+            <tr onclick="showStockDetail('GVR')" style="cursor: pointer;">
+                <td>9</td>
+                <td><strong>GVR</strong></td>
+                <td>40</td>
+                <td>16</td>
+                <td>3</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">61.2</td>
+                <td>67.2</td>
+                <td class="">0.3x</td>
+            </tr>
+            <tr onclick="showStockDetail('KBC')" style="cursor: pointer;">
+                <td>10</td>
+                <td><strong>KBC</strong></td>
+                <td>37</td>
+                <td>15</td>
+                <td>4</td>
+                <td class="stars">⭐⭐⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">55.0</td>
+                <td>68.4</td>
+                <td class="">0.2x</td>
+            </tr>
+            <tr onclick="showStockDetail('BID')" style="cursor: pointer;">
+                <td>11</td>
+                <td><strong>BID</strong></td>
+                <td>52</td>
+                <td>16</td>
+                <td>2</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">53.8</td>
+                <td>61.2</td>
+                <td class="">0.4x</td>
+            </tr>
+            <tr onclick="showStockDetail('PC1')" style="cursor: pointer;">
+                <td>12</td>
+                <td><strong>PC1</strong></td>
+                <td>26</td>
+                <td>14</td>
+                <td>4</td>
+                <td class="stars">⭐⭐⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">58.7</td>
+                <td>62.3</td>
+                <td class="">0.4x</td>
+            </tr>
+            <tr onclick="showStockDetail('VNM')" style="cursor: pointer;">
+                <td>13</td>
+                <td><strong>VNM</strong></td>
+                <td>70</td>
+                <td>15</td>
+                <td>3</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">50.9</td>
+                <td>59.7</td>
+                <td class="">0.4x</td>
+            </tr>
+            <tr onclick="showStockDetail('HPG')" style="cursor: pointer;">
+                <td>14</td>
+                <td><strong>HPG</strong></td>
+                <td>28</td>
+                <td>14</td>
+                <td>4</td>
+                <td class="stars">⭐⭐⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">50.5</td>
+                <td>61.3</td>
+                <td class="">0.4x</td>
+            </tr>
+            <tr onclick="showStockDetail('POW')" style="cursor: pointer;">
+                <td>15</td>
+                <td><strong>POW</strong></td>
+                <td>14</td>
+                <td>16</td>
+                <td>2</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">53.0</td>
+                <td>68.5</td>
+                <td class="">0.3x</td>
+            </tr>
+            <tr onclick="showStockDetail('GAS')" style="cursor: pointer;">
+                <td>16</td>
+                <td><strong>GAS</strong></td>
+                <td>115</td>
+                <td>15</td>
+                <td>2</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">65.8</td>
+                <td>65.7</td>
+                <td class="">0.3x</td>
+            </tr>
+            <tr onclick="showStockDetail('PLX')" style="cursor: pointer;">
+                <td>17</td>
+                <td><strong>PLX</strong></td>
+                <td>58</td>
+                <td>15</td>
+                <td>2</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">60.8</td>
+                <td>63.6</td>
+                <td class="">0.3x</td>
+            </tr>
+            <tr onclick="showStockDetail('MWG')" style="cursor: pointer;">
+                <td>18</td>
+                <td><strong>MWG</strong></td>
+                <td>91</td>
+                <td>14</td>
+                <td>3</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">61.1</td>
+                <td>72.6</td>
+                <td class="">0.3x</td>
+            </tr>
+            <tr onclick="showStockDetail('PVS')" style="cursor: pointer;">
+                <td>19</td>
+                <td><strong>PVS</strong></td>
+                <td>46</td>
+                <td>14</td>
+                <td>3</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">68.4</td>
+                <td>71.7</td>
+                <td class="">0.4x</td>
+            </tr>
+            <tr onclick="showStockDetail('VCI')" style="cursor: pointer;">
+                <td>20</td>
+                <td><strong>VCI</strong></td>
+                <td>36</td>
+                <td>13</td>
+                <td>3</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">62.4</td>
+                <td>73.0</td>
+                <td class="">0.3x</td>
+            </tr>
+            <tr onclick="showStockDetail('PNJ')" style="cursor: pointer;">
+                <td>21</td>
+                <td><strong>PNJ</strong></td>
+                <td>116</td>
+                <td>14</td>
+                <td>2</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">59.3</td>
+                <td>64.6</td>
+                <td class="">0.5x</td>
+            </tr>
+            <tr onclick="showStockDetail('CTG')" style="cursor: pointer;">
+                <td>22</td>
+                <td><strong>CTG</strong></td>
+                <td>39</td>
+                <td>15</td>
+                <td>1</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">44.0</td>
+                <td>49.2</td>
+                <td class="">0.3x</td>
+            </tr>
+            <tr onclick="showStockDetail('MSN')" style="cursor: pointer;">
+                <td>23</td>
+                <td><strong>MSN</strong></td>
+                <td>81</td>
+                <td>14</td>
+                <td>2</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">49.0</td>
+                <td>48.4</td>
+                <td class="">0.5x</td>
+            </tr>
+            <tr onclick="showStockDetail('SCS')" style="cursor: pointer;">
+                <td>24</td>
+                <td><strong>SCS</strong></td>
+                <td>55</td>
+                <td>15</td>
+                <td>1</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">48.1</td>
+                <td>53.1</td>
+                <td class="">0.3x</td>
+            </tr>
+            <tr onclick="showStockDetail('FRT')" style="cursor: pointer;">
+                <td>25</td>
+                <td><strong>FRT</strong></td>
+                <td>170</td>
+                <td>13</td>
+                <td>3</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">65.7</td>
+                <td>89.9</td>
+                <td class="">0.3x</td>
+            </tr>
+            <tr onclick="showStockDetail('DGW')" style="cursor: pointer;">
+                <td>26</td>
+                <td><strong>DGW</strong></td>
+                <td>54</td>
+                <td>13</td>
+                <td>3</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">69.9</td>
+                <td>79.0</td>
+                <td class="">0.7x</td>
+            </tr>
+            <tr onclick="showStockDetail('GMD')" style="cursor: pointer;">
+                <td>27</td>
+                <td><strong>GMD</strong></td>
+                <td>73</td>
+                <td>13</td>
+                <td>3</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">68.8</td>
+                <td>64.9</td>
+                <td class="">0.2x</td>
+            </tr>
+            <tr onclick="showStockDetail('PVD')" style="cursor: pointer;">
+                <td>28</td>
+                <td><strong>PVD</strong></td>
+                <td>34</td>
+                <td>13</td>
+                <td>3</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">68.8</td>
+                <td>71.6</td>
+                <td class="">0.5x</td>
+            </tr>
+            <tr onclick="showStockDetail('SAB')" style="cursor: pointer;">
+                <td>29</td>
+                <td><strong>SAB</strong></td>
+                <td>50</td>
+                <td>14</td>
+                <td>1</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">42.3</td>
+                <td>58.1</td>
+                <td class="">0.3x</td>
+            </tr>
+            <tr onclick="showStockDetail('TNG')" style="cursor: pointer;">
+                <td>30</td>
+                <td><strong>TNG</strong></td>
+                <td>22</td>
+                <td>13</td>
+                <td>2</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">66.4</td>
+                <td>73.6</td>
+                <td class="">0.7x</td>
+            </tr>
+            <tr onclick="showStockDetail('BSR')" style="cursor: pointer;">
+                <td>31</td>
+                <td><strong>BSR</strong></td>
+                <td>24</td>
+                <td>13</td>
+                <td>2</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="red">78.3</td>
+                <td>73.6</td>
+                <td class="">0.4x</td>
+            </tr>
+            <tr onclick="showStockDetail('VCB')" style="cursor: pointer;">
+                <td>32</td>
+                <td><strong>VCB</strong></td>
+                <td>69</td>
+                <td>14</td>
+                <td>0</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">35.7</td>
+                <td>53.5</td>
+                <td class="">0.4x</td>
+            </tr>
+            <tr onclick="showStockDetail('BCM')" style="cursor: pointer;">
+                <td>33</td>
+                <td><strong>BCM</strong></td>
+                <td>70</td>
+                <td>14</td>
+                <td>0</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">36.3</td>
+                <td>44.2</td>
+                <td class="">0.4x</td>
+            </tr>
+            <tr onclick="showStockDetail('HDB')" style="cursor: pointer;">
+                <td>34</td>
+                <td><strong>HDB</strong></td>
+                <td>27</td>
+                <td>12</td>
+                <td>1</td>
+                <td class="stars">⭐⭐</td>
+                <td><span class="signal-badge signal-pullback">PULLBACK</span></td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">40.2</td>
+                <td>23.6</td>
+                <td class="">0.4x</td>
+            </tr>
+            <tr onclick="showStockDetail('VTP')" style="cursor: pointer;">
+                <td>35</td>
+                <td><strong>VTP</strong></td>
+                <td>111</td>
+                <td>13</td>
+                <td>0</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">33.6</td>
+                <td>46.3</td>
+                <td class="">0.3x</td>
+            </tr>
+            <tr onclick="showStockDetail('TCB')" style="cursor: pointer;">
+                <td>36</td>
+                <td><strong>TCB</strong></td>
+                <td>35</td>
+                <td>10</td>
+                <td>3</td>
+                <td class="stars">⭐⭐</td>
+                <td><span class="signal-badge signal-pullback">PULLBACK</span></td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">43.4</td>
+                <td>35.8</td>
+                <td class="">0.4x</td>
+            </tr>
+            <tr onclick="showStockDetail('KDC')" style="cursor: pointer;">
+                <td>37</td>
+                <td><strong>KDC</strong></td>
+                <td>52</td>
+                <td>10</td>
+                <td>3</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-gray">XÁM</span></td>
+                <td class="">69.5</td>
+                <td>55.3</td>
+                <td class="">0.7x</td>
+            </tr>
+            <tr onclick="showStockDetail('CTD')" style="cursor: pointer;">
+                <td>38</td>
+                <td><strong>CTD</strong></td>
+                <td>84</td>
+                <td>8</td>
+                <td>4</td>
+                <td class="stars">⭐⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-red">ĐỎ</span></td>
+                <td class="">69.5</td>
+                <td>71.9</td>
+                <td class="">0.4x</td>
+            </tr>
+            <tr onclick="showStockDetail('STB')" style="cursor: pointer;">
+                <td>39</td>
+                <td><strong>STB</strong></td>
+                <td>64</td>
+                <td>11</td>
+                <td>0</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="red">74.5</td>
+                <td>59.8</td>
+                <td class="">0.3x</td>
+            </tr>
+            <tr onclick="showStockDetail('FPT')" style="cursor: pointer;">
+                <td>40</td>
+                <td><strong>FPT</strong></td>
+                <td>99</td>
+                <td>11</td>
+                <td>0</td>
+                <td class="stars">⭐⭐</td>
+                <td><span class="signal-badge signal-pullback">PULLBACK</span></td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">37.7</td>
+                <td>43.9</td>
+                <td class="">0.9x</td>
+            </tr>
+            <tr onclick="showStockDetail('ANV')" style="cursor: pointer;">
+                <td>41</td>
+                <td><strong>ANV</strong></td>
+                <td>29</td>
+                <td>8</td>
+                <td>3</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-red">ĐỎ</span></td>
+                <td class="">64.4</td>
+                <td>73.4</td>
+                <td class="">0.5x</td>
+            </tr>
+            <tr onclick="showStockDetail('SSI')" style="cursor: pointer;">
+                <td>42</td>
+                <td><strong>SSI</strong></td>
+                <td>31</td>
+                <td>11</td>
+                <td>0</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="">33.8</td>
+                <td>49.4</td>
+                <td class="">0.2x</td>
+            </tr>
+            <tr onclick="showStockDetail('TPB')" style="cursor: pointer;">
+                <td>43</td>
+                <td><strong>TPB</strong></td>
+                <td>17</td>
+                <td>10</td>
+                <td>1</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-gray">XÁM</span></td>
+                <td class="">46.4</td>
+                <td>62.6</td>
+                <td class="">0.2x</td>
+            </tr>
+            <tr onclick="showStockDetail('VIC')" style="cursor: pointer;">
+                <td>44</td>
+                <td><strong>VIC</strong></td>
+                <td>127</td>
+                <td>8</td>
+                <td>2</td>
+                <td class="stars">⭐⭐</td>
+                <td><span class="signal-badge signal-pullback">PULLBACK</span></td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="green">21.5</td>
+                <td>16.2</td>
+                <td class="">0.7x</td>
+            </tr>
+            <tr onclick="showStockDetail('PAN')" style="cursor: pointer;">
+                <td>45</td>
+                <td><strong>PAN</strong></td>
+                <td>31</td>
+                <td>10</td>
+                <td>0</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="red">74.1</td>
+                <td>74.7</td>
+                <td class="">0.3x</td>
+            </tr>
+            <tr onclick="showStockDetail('HAH')" style="cursor: pointer;">
+                <td>46</td>
+                <td><strong>HAH</strong></td>
+                <td>58</td>
+                <td>7</td>
+                <td>3</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-red">ĐỎ</span></td>
+                <td class="">52.3</td>
+                <td>61.8</td>
+                <td class="">0.4x</td>
+            </tr>
+            <tr onclick="showStockDetail('VHM')" style="cursor: pointer;">
+                <td>47</td>
+                <td><strong>VHM</strong></td>
+                <td>96</td>
+                <td>8</td>
+                <td>2</td>
+                <td class="stars">⭐⭐</td>
+                <td><span class="signal-badge signal-pullback">PULLBACK</span></td>
+                <td><span class="channel-green">XANH</span></td>
+                <td class="green">21.1</td>
+                <td>31.0</td>
+                <td class="">0.6x</td>
+            </tr>
+            <tr onclick="showStockDetail('DIG')" style="cursor: pointer;">
+                <td>48</td>
+                <td><strong>DIG</strong></td>
+                <td>16</td>
+                <td>6</td>
+                <td>3</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-red">ĐỎ</span></td>
+                <td class="">50.6</td>
+                <td>52.3</td>
+                <td class="">0.4x</td>
+            </tr>
+            <tr onclick="showStockDetail('FCN')" style="cursor: pointer;">
+                <td>49</td>
+                <td><strong>FCN</strong></td>
+                <td>14</td>
+                <td>6</td>
+                <td>3</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-red">ĐỎ</span></td>
+                <td class="">47.3</td>
+                <td>52.3</td>
+                <td class="">0.3x</td>
+            </tr>
+            <tr onclick="showStockDetail('DXG')" style="cursor: pointer;">
+                <td>50</td>
+                <td><strong>DXG</strong></td>
+                <td>15</td>
+                <td>6</td>
+                <td>3</td>
+                <td class="stars">⭐⭐</td>
+                <td>-</td>
+                <td><span class="channel-red">ĐỎ</span></td>
+                <td class="">41.1</td>
+                <td>53.9</td>
+                <td class="">0.4x</td>
+            </tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="tab-pane fade" id="portfolio">
+                <div class="card portfolio-card">
+                    <div class="card-header">Portfolio cua ban</div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-6"><div class="stat-card"><div class="stat-number blue">100%</div><div class="stat-label">Tien mat</div></div></div>
+                            <div class="col-6"><div class="stat-card"><div class="stat-number pnl-positive">+0.00%</div><div class="stat-label">Tong P&L</div></div></div>
+                        </div>
+                        <div class="text-center text-secondary py-4"><p>Chua co vi the nao</p><p class="small">Dung Telegram Bot de them vi the:</p><code>/buy VCI 1000 37000</code></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="tab-pane fade" id="ai-report">
+                <div class="card">
+                    <div class="card-header">Bao cao phan tich AI</div>
+                    <div class="card-body"><div class="ai-report">❌ Lỗi gọi Claude API: Error code: 401 - {'type': 'error', 'error': {'type': 'authentication_error', 'message': 'invalid x-api-key'}, 'request_id': 'req_011CXpJj8HEihQGA6hLxjZNZ'}</div></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="modal fade" id="stockModal" tabindex="-1">
+            <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                <div class="modal-content" style="background-color: var(--bg-card); color: var(--text-primary);">
+                    <div class="modal-header" style="border-color: var(--border-color);"><h5 class="modal-title" id="stockModalTitle">Chi tiet co phieu</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+                    <div class="modal-body" id="stockModalBody"></div>
+                </div>
+            </div>
+        </div>
     </div>
+    
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    
+    <script>
+        const ctx = document.getElementById('channelChart').getContext('2d');
+        new Chart(ctx, { type: 'doughnut', data: { labels: ['Xanh', 'Xam', 'Do'], datasets: [{ data: [44, 4, 22], backgroundColor: ['#3fb950', '#8b949e', '#f85149'], borderWidth: 0 }] }, options: { responsive: true, plugins: { legend: { display: false } } } });
+        
+        $(document).ready(function() {
+            $('#stockTable').DataTable({ pageLength: 20, order: [[3, 'desc'], [4, 'desc']], language: { search: "Tim kiem:", lengthMenu: "Hien thi _MENU_ ma", info: "Hien thi _START_ - _END_ / _TOTAL_ ma", paginate: { first: "Dau", last: "Cuoi", next: "Sau", previous: "Truoc" } } });
+        });
+        
+        const stockData = [{"time": "2026-02-05", "open": 38.6, "high": 40.9, "low": 38.6, "close": 39.95, "volume": 1420100, "symbol": "MSH", "ma5": 38.49930779431517, "ma10": 37.445734702753576, "ma20": 36.37101741568711, "ma50": 35.12871819698661, "ma200": 33.10175, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 63.07585923337134, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 63.93003857106386, "rsi_above_ma": false, "macd": 1.177925468916868, "macd_signal": 0.7527916806823406, "macd_hist": 0.4251337882345275, "macd_bullish": true, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": 0.0832864004675901, "macd_accelerating": true, "bb_mid": 36.2625, "bb_std": 1.59033884174978, "bb_upper": 39.44317768349956, "bb_lower": 33.08182231650044, "bb_percent": 107.96720647190516, "bb_width": 17.542517385726633, "bb_squeeze": false, "near_bb_lower": false, "near_bb_upper": true, "stoch_k": 85.81961463261749, "stoch_d": 86.6301550574741, "stoch_overbought": true, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 1.3000000000000005, "atr_percent": 3.2540675844806013, "vol_ma": 836295.0, "vol_ratio": 1.698082975405837, "vol_surge": true, "vol_above_avg": true, "mfi": 72.31734132100797, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 25344489, "obv_ma": 20960849.0, "obv_rising": true, "lr_value": 36.29762352941175, "lr_slope": 0.0672091236494594, "lr_slope_pct": 0.1682331004992728, "lr_upper": 39.94580059725933, "lr_lower": 32.649446461564175, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 100.05618349220644, "near_channel_bottom": false, "near_channel_top": true, "highest_20": 39.6, "highest_50": 39.6, "lowest_20": 32.85, "lowest_50": 31.2, "breakout_20": true, "breakout_50": true, "breakdown_20": false, "breakdown_50": false, "support": 33.3, "resistance": 40.9, "near_support": false, "near_resistance": true, "quality_score": 15.0, "momentum_score": 10, "total_score": 25.0, "quality_rating": 4, "momentum_rating": 5, "stars": 5, "buy_signal": "BREAKOUT", "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 27.85, "high": 27.9, "low": 27.55, "close": 27.7, "volume": 7447400, "symbol": "MBB", "ma5": 27.511562766409234, "ma10": 27.280309913300183, "ma20": 26.95184777126523, "ma50": 26.143134123293574, "ma200": 23.35225, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 58.881524894560975, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 56.40927786802074, "rsi_above_ma": true, "macd": 0.4612634107955813, "macd_signal": 0.4542371473019195, "macd_hist": 0.0070262634936617, "macd_bullish": true, "macd_cross_up": true, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": 0.0108229347200344, "macd_accelerating": true, "bb_mid": 27.192499999999995, "bb_std": 0.4971696205314059, "bb_upper": 28.18683924106281, "bb_lower": 26.198160758937185, "bb_percent": 75.51945950848508, "bb_width": 7.313334493428783, "bb_squeeze": true, "near_bb_lower": false, "near_bb_upper": false, "stoch_k": 80.94852626065416, "stoch_d": 82.53575226576503, "stoch_overbought": true, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 0.617857142857143, "atr_percent": 2.230531201650336, "vol_ma": 30899385.0, "vol_ratio": 0.2410209704490568, "vol_surge": false, "vol_above_avg": false, "mfi": 69.72549360759365, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 1314908712, "obv_ma": 1221616577.0, "obv_rising": true, "lr_value": 27.84917647058824, "lr_slope": 0.0853541416566628, "lr_slope_pct": 0.3081376955114181, "lr_upper": 30.68907873967473, "lr_lower": 25.00927420150174, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 47.37272924949127, "near_channel_bottom": false, "near_channel_top": false, "highest_20": 28.3, "highest_50": 28.3, "lowest_20": 26.0, "lowest_50": 22.8, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 26.0, "resistance": 28.3, "near_support": false, "near_resistance": true, "quality_score": 18.0, "momentum_score": 4, "total_score": 22.0, "quality_rating": 5, "momentum_rating": 3, "stars": 4, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 81.4, "high": 81.9, "low": 79.1, "close": 80.0, "volume": 371900, "symbol": "BVH", "ma5": 77.85416685953659, "ma10": 75.19664033055501, "ma20": 71.71584270025075, "ma50": 65.03030395076817, "ma200": 54.59635, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 59.87198054003899, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 65.98925900045933, "rsi_above_ma": false, "macd": 4.451788002815491, "macd_signal": 3.9073723637304583, "macd_hist": 0.5444156390850319, "macd_bullish": true, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": 0.0760453349843639, "macd_accelerating": true, "bb_mid": 72.225, "bb_std": 4.541142332521026, "bb_upper": 81.30728466504205, "bb_lower": 63.14271533495794, "bb_percent": 92.8031067443095, "bb_width": 25.14997484262251, "bb_squeeze": true, "near_bb_lower": false, "near_bb_upper": true, "stoch_k": 74.85991698370401, "stoch_d": 86.96406611175196, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 4.2285714285714295, "atr_percent": 5.285714285714287, "vol_ma": 1569635.0, "vol_ratio": 0.2369339133404177, "vol_surge": false, "vol_above_avg": false, "mfi": 66.20838578666172, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 41098882, "obv_ma": 34110347.0, "obv_rising": true, "lr_value": 76.58282352941175, "lr_slope": 0.589747899159664, "lr_slope_pct": 0.73718487394958, "lr_upper": 95.09325566805144, "lr_lower": 58.07239139077207, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 59.2302470702672, "near_channel_bottom": false, "near_channel_top": false, "highest_20": 84.5, "highest_50": 84.5, "lowest_20": 64.1, "lowest_50": 50.4, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 64.1, "resistance": 84.5, "near_support": false, "near_resistance": false, "quality_score": 17.0, "momentum_score": 4, "total_score": 21.0, "quality_rating": 5, "momentum_rating": 3, "stars": 4, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 68.8, "high": 68.8, "low": 64.3, "close": 64.9, "volume": 2304300, "symbol": "VHC", "ma5": 66.12156946190004, "ma10": 64.73425445545767, "ma20": 62.53853537910296, "ma50": 59.67527425111523, "ma200": 56.01875, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 59.59666258689514, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 68.69999973967408, "rsi_above_ma": false, "macd": 2.5731907625185286, "macd_signal": 2.036021869276881, "macd_hist": 0.5371688932416476, "macd_bullish": true, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": -0.2702552206232216, "macd_accelerating": false, "bb_mid": 61.99, "bb_std": 3.690799371410111, "bb_upper": 69.37159874282021, "bb_lower": 54.60840125717977, "bb_percent": 69.71117708633548, "bb_width": 23.81545004942804, "bb_squeeze": false, "near_bb_lower": false, "near_bb_upper": false, "stoch_k": 56.139858422294566, "stoch_d": 75.6467989252693, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 2.8142857142857154, "atr_percent": 4.336341624477219, "vol_ma": 1927365.0, "vol_ratio": 1.195569497438473, "vol_surge": false, "vol_above_avg": true, "mfi": 72.47759706001386, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 31780561, "obv_ma": 29796381.0, "obv_rising": true, "lr_value": 62.98964705882351, "lr_slope": 0.1932100840336129, "lr_slope_pct": 0.2977042897282171, "lr_upper": 70.98752024550272, "lr_lower": 54.99177387214429, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 61.9424936735962, "near_channel_bottom": false, "near_channel_top": false, "highest_20": 69.9, "highest_50": 69.9, "lowest_20": 56.2, "lowest_50": 52.9, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 56.2, "resistance": 69.9, "near_support": false, "near_resistance": false, "quality_score": 16.0, "momentum_score": 5, "total_score": 21.0, "quality_rating": 5, "momentum_rating": 3, "stars": 4, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 38.6, "high": 39.15, "low": 38.5, "close": 38.95, "volume": 3846500, "symbol": "DCM", "ma5": 37.98233505744368, "ma10": 37.26804435075905, "ma20": 36.33934438878863, "ma50": 35.23859877788505, "ma200": 34.9244, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 66.22573887147877, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 63.70735553012778, "rsi_above_ma": true, "macd": 1.090461783337986, "macd_signal": 0.8540548094048468, "macd_hist": 0.2364069739331391, "macd_bullish": true, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": 0.0474258127832927, "macd_accelerating": true, "bb_mid": 36.295, "bb_std": 1.2614632272420487, "bb_upper": 38.8179264544841, "bb_lower": 33.7720735455159, "bb_percent": 102.61746721314768, "bb_width": 13.90233615916297, "bb_squeeze": false, "near_bb_lower": false, "near_bb_upper": true, "stoch_k": 95.91640986918644, "stoch_d": 88.6758139331623, "stoch_overbought": true, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 1.3285714285714303, "atr_percent": 3.410966440491477, "vol_ma": 4446450.0, "vol_ratio": 0.8650719416451458, "vol_surge": false, "vol_above_avg": false, "mfi": 82.22473724224425, "mfi_bullish": true, "mfi_overbought": true, "mfi_oversold": false, "obv": 138954392, "obv_ma": 124350272.0, "obv_rising": true, "lr_value": 36.689411764705866, "lr_slope": 0.0948331332533009, "lr_slope_pct": 0.2434740263242642, "lr_upper": 40.47787114680243, "lr_lower": 32.900952382609304, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 79.83413801186305, "near_channel_bottom": false, "near_channel_top": true, "highest_20": 38.6, "highest_50": 38.6, "lowest_20": 34.25, "lowest_50": 31.2, "breakout_20": true, "breakout_50": true, "breakdown_20": false, "breakdown_50": false, "support": 34.25, "resistance": 39.15, "near_support": false, "near_resistance": true, "quality_score": 13.0, "momentum_score": 7, "total_score": 20.0, "quality_rating": 4, "momentum_rating": 4, "stars": 5, "buy_signal": "MOMENTUM", "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 25.35, "high": 25.75, "low": 25.25, "close": 25.35, "volume": 5891700, "symbol": "DPM", "ma5": 24.79408502600881, "ma10": 24.497850943338022, "ma20": 24.17879373408513, "ma50": 23.79389747861861, "ma200": 23.06665, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 58.98092470581465, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 59.46114150250627, "rsi_above_ma": false, "macd": 0.3838990921481944, "macd_signal": 0.3079960618550491, "macd_hist": 0.0759030302931452, "macd_bullish": true, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": 0.0446839093845248, "macd_accelerating": true, "bb_mid": 24.3275, "bb_std": 0.6701286208041725, "bb_upper": 25.667757241608346, "bb_lower": 22.98724275839165, "bb_percent": 88.14566220037642, "bb_width": 11.018454355016711, "bb_squeeze": true, "near_bb_lower": false, "near_bb_upper": true, "stoch_k": 71.42653067055227, "stoch_d": 61.902993247811935, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 0.8392857142857143, "atr_percent": 3.3107917723302336, "vol_ma": 6902475.0, "vol_ratio": 0.8535632720780195, "vol_surge": false, "vol_above_avg": false, "mfi": 78.68638071685197, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 187811578, "obv_ma": 148714823.0, "obv_rising": true, "lr_value": 24.408470588235296, "lr_slope": 0.0428355342136854, "lr_slope_pct": 0.1689764663261754, "lr_upper": 26.365320409884948, "lr_lower": 22.451620766585645, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 74.05538089760377, "near_channel_bottom": false, "near_channel_top": true, "highest_20": 26.35, "highest_50": 26.35, "lowest_20": 22.85, "lowest_50": 21.55, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 22.85, "resistance": 26.35, "near_support": false, "near_resistance": false, "quality_score": 16.0, "momentum_score": 4, "total_score": 20.0, "quality_rating": 5, "momentum_rating": 3, "stars": 4, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 66.6, "high": 66.8, "low": 64.8, "close": 65.1, "volume": 519700, "symbol": "PHR", "ma5": 65.4299396237183, "ma10": 64.77100884147018, "ma20": 63.636634114409375, "ma50": 60.97686271819744, "ma200": 55.9151, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 48.19006160296207, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 57.360813292902655, "rsi_above_ma": false, "macd": 1.5696896147801525, "macd_signal": 1.565152837976922, "macd_hist": 0.0045367768032305, "macd_bullish": true, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": -0.0703998271923811, "macd_accelerating": false, "bb_mid": 64.4, "bb_std": 2.054776207561116, "bb_upper": 68.50955241512224, "bb_lower": 60.290447584877775, "bb_percent": 58.51674257060382, "bb_width": 12.76258514013116, "bb_squeeze": true, "near_bb_lower": false, "near_bb_upper": false, "stoch_k": 47.05826990270699, "stoch_d": 65.48942561460065, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 2.7785714285714294, "atr_percent": 4.268158876453809, "vol_ma": 1180885.0, "vol_ratio": 0.440093285888731, "vol_surge": false, "vol_above_avg": false, "mfi": 50.07846778454422, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 28386882, "obv_ma": 28891642.0, "obv_rising": false, "lr_value": 65.56729411764705, "lr_slope": 0.2274813925570228, "lr_slope_pct": 0.3494337827296818, "lr_upper": 73.4970273658562, "lr_lower": 57.63756086943791, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 47.05323523343087, "near_channel_bottom": false, "near_channel_top": false, "highest_20": 69.6, "highest_50": 69.6, "lowest_20": 58.4, "lowest_50": 54.3, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 58.6, "resistance": 69.6, "near_support": false, "near_resistance": false, "quality_score": 18.0, "momentum_score": 2, "total_score": 20.0, "quality_rating": 5, "momentum_rating": 2, "stars": 2, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 29.4, "high": 29.65, "low": 28.7, "close": 28.75, "volume": 6444700, "symbol": "DBC", "ma5": 28.51736825221898, "ma10": 28.34002385281533, "ma20": 28.107821311352662, "ma50": 27.72161231858424, "ma200": 27.33715, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 57.40982697865938, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 57.56861709552572, "rsi_above_ma": false, "macd": 0.2835866012617813, "macd_signal": 0.2330221606778559, "macd_hist": 0.0505644405839253, "macd_bullish": true, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": 0.0119576887295382, "macd_accelerating": true, "bb_mid": 28.0625, "bb_std": 0.6506828397118247, "bb_upper": 29.36386567942365, "bb_lower": 26.76113432057635, "bb_percent": 76.41455860064177, "bb_width": 9.274766534867886, "bb_squeeze": false, "near_bb_lower": false, "near_bb_upper": false, "stoch_k": 62.49739594183579, "stoch_d": 57.710328667277714, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 0.9607142857142854, "atr_percent": 3.341614906832297, "vol_ma": 8408805.0, "vol_ratio": 0.7664227239872106, "vol_surge": false, "vol_above_avg": false, "mfi": 65.97703060519703, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 520529047, "obv_ma": 508816707.0, "obv_rising": true, "lr_value": 28.20870588235293, "lr_slope": 0.0211716686674667, "lr_slope_pct": 0.0736405866694494, "lr_upper": 29.592430521705516, "lr_lower": 26.824981243000348, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 69.55680145649647, "near_channel_bottom": false, "near_channel_top": false, "highest_20": 29.6, "highest_50": 29.6, "lowest_20": 25.75, "lowest_50": 25.75, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 25.75, "resistance": 29.65, "near_support": false, "near_resistance": false, "quality_score": 15.0, "momentum_score": 4, "total_score": 19.0, "quality_rating": 4, "momentum_rating": 3, "stars": 4, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 41.7, "high": 41.7, "low": 40.15, "close": 40.35, "volume": 2580500, "symbol": "GVR", "ma5": 40.97977161566743, "ma10": 40.10732908188965, "ma20": 37.807534085677375, "ma50": 33.537578766431075, "ma200": 29.083250000000003, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 61.204751302175175, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 74.85069848057125, "rsi_above_ma": false, "macd": 3.05538005641219, "macd_signal": 3.0402959601206705, "macd_hist": 0.0150840962915195, "macd_bullish": true, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": -0.1776319260991572, "macd_accelerating": false, "bb_mid": 38.1425, "bb_std": 3.020381424153008, "bb_upper": 44.183262848306015, "bb_lower": 32.10173715169398, "bb_percent": 68.27169891811795, "bb_width": 31.674708518351007, "bb_squeeze": true, "near_bb_lower": false, "near_bb_upper": false, "stoch_k": 56.05024139819878, "stoch_d": 72.824171689203, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 2.603571428571428, "atr_percent": 6.452469463621879, "vol_ma": 9030540.0, "vol_ratio": 0.2857525368635168, "vol_surge": false, "vol_above_avg": false, "mfi": 67.22482589255122, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 372051133, "obv_ma": 356355043.0, "obv_rising": true, "lr_value": 40.00847058823528, "lr_slope": 0.3525906362545016, "lr_slope_pct": 0.8738305731214414, "lr_upper": 51.91225150019765, "lr_lower": 28.10468967627292, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 51.434325698551206, "near_channel_bottom": false, "near_channel_top": false, "highest_20": 43.8, "highest_50": 43.8, "lowest_20": 29.6, "lowest_50": 25.1, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 30.3, "resistance": 43.8, "near_support": false, "near_resistance": false, "quality_score": 16.0, "momentum_score": 3, "total_score": 19.0, "quality_rating": 5, "momentum_rating": 2, "stars": 2, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 37.2, "high": 37.4, "low": 36.7, "close": 36.95, "volume": 1376500, "symbol": "KBC", "ma5": 36.51721392210826, "ma10": 36.08509274055424, "ma20": 35.786561426004184, "ma50": 35.32202957027353, "ma200": 32.356, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 55.012861114828205, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 54.40555903027248, "rsi_above_ma": true, "macd": 0.3502257498113721, "macd_signal": 0.2296325257497388, "macd_hist": 0.1205932240616333, "macd_bullish": true, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": 0.0379662486279997, "macd_accelerating": true, "bb_mid": 36.002500000000005, "bb_std": 1.3815966164283882, "bb_upper": 38.76569323285678, "bb_lower": 33.239306767143226, "bb_percent": 67.14501882701138, "bb_width": 15.35000754312494, "bb_squeeze": false, "near_bb_lower": false, "near_bb_upper": false, "stoch_k": 74.48827574947454, "stoch_d": 82.9631459007445, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 1.4607142857142863, "atr_percent": 3.953218635221344, "vol_ma": 7527620.0, "vol_ratio": 0.1828598969050115, "vol_surge": false, "vol_above_avg": false, "mfi": 68.38244217246074, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 287842551, "obv_ma": 276444416.0, "obv_rising": true, "lr_value": 36.08447058823528, "lr_slope": 0.0427539015606241, "lr_slope_pct": 0.1157074467134618, "lr_upper": 38.81568172722035, "lr_lower": 33.35325944925022, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 65.84395207421159, "near_channel_bottom": false, "near_channel_top": false, "highest_20": 38.2, "highest_50": 38.2, "lowest_20": 33.3, "lowest_50": 32.3, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 33.3, "resistance": 38.2, "near_support": false, "near_resistance": false, "quality_score": 15.0, "momentum_score": 4, "total_score": 19.0, "quality_rating": 4, "momentum_rating": 3, "stars": 4, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 53.0, "high": 53.3, "low": 51.8, "close": 52.1, "volume": 4936500, "symbol": "BID", "ma5": 52.9894870174591, "ma10": 52.64525687337634, "ma20": 50.74944595701574, "ma50": 46.09910047056603, "ma200": 39.3706, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 53.84035565400649, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 68.61964231038151, "rsi_above_ma": false, "macd": 2.797813177941194, "macd_signal": 3.170286044676585, "macd_hist": -0.3724728667353911, "macd_bullish": false, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": -0.1550735388278363, "macd_accelerating": false, "bb_mid": 52.03000000000001, "bb_std": 1.9899352012723568, "bb_upper": 56.00987040254472, "bb_lower": 48.050129597455296, "bb_percent": 50.87942562093524, "bb_width": 15.298367874475154, "bb_squeeze": true, "near_bb_lower": false, "near_bb_upper": false, "stoch_k": 36.61920254644302, "stoch_d": 50.234034262428246, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 2.728571428571428, "atr_percent": 5.237181244858786, "vol_ma": 13845145.0, "vol_ratio": 0.3565509529476973, "vol_surge": false, "vol_above_avg": false, "mfi": 61.155490044119965, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 255497462, "obv_ma": 262725827.0, "obv_rising": false, "lr_value": 54.35682352941176, "lr_slope": 0.4333397358943573, "lr_slope_pct": 0.8317461341542367, "lr_upper": 68.38959857607317, "lr_lower": 40.32404848275034, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 41.95859165240326, "near_channel_bottom": false, "near_channel_top": false, "highest_20": 56.6, "highest_50": 56.6, "lowest_20": 40.9, "lowest_50": 36.65, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 43.7, "resistance": 56.6, "near_support": false, "near_resistance": false, "quality_score": 16.0, "momentum_score": 2, "total_score": 18.0, "quality_rating": 5, "momentum_rating": 2, "stars": 2, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 26.25, "high": 26.7, "low": 25.7, "close": 25.9, "volume": 2729200, "symbol": "PC1", "ma5": 25.39579631419304, "ma10": 24.80314026323573, "ma20": 24.25309550299854, "ma50": 23.37682667079728, "ma200": 21.5625, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 58.65571759938143, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 52.06301937490387, "rsi_above_ma": true, "macd": 0.6354061367120103, "macd_signal": 0.4268806725781227, "macd_hist": 0.2085254641338875, "macd_bullish": true, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": 0.0234567381906984, "macd_accelerating": true, "bb_mid": 24.2125, "bb_std": 1.0217213287799514, "bb_upper": 26.255942657559903, "bb_lower": 22.16905734244009, "bb_percent": 91.29061301908663, "bb_width": 16.8792372333291, "bb_squeeze": false, "near_bb_lower": false, "near_bb_upper": true, "stoch_k": 69.99860002799944, "stoch_d": 80.21550050820765, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 1.0107142857142857, "atr_percent": 3.902371759514617, "vol_ma": 6940745.0, "vol_ratio": 0.3932142164545425, "vol_surge": false, "vol_above_avg": false, "mfi": 62.349852539203695, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 120887310, "obv_ma": 89189605.0, "obv_rising": true, "lr_value": 24.72670588235293, "lr_slope": 0.0654165666266505, "lr_slope_pct": 0.252573616319114, "lr_upper": 27.40086338843704, "lr_lower": 22.05254837626882, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 71.93629542542624, "near_channel_bottom": false, "near_channel_top": true, "highest_20": 27.4, "highest_50": 27.4, "lowest_20": 22.4, "lowest_50": 20.5, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 22.4, "resistance": 27.4, "near_support": false, "near_resistance": false, "quality_score": 14.0, "momentum_score": 4, "total_score": 18.0, "quality_rating": 4, "momentum_rating": 3, "stars": 4, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 71.9, "high": 72.2, "low": 69.8, "close": 70.0, "volume": 4272200, "symbol": "VNM", "ma5": 70.88271004250326, "ma10": 70.33618533235412, "ma20": 68.8569902531601, "ma50": 65.8048490767135, "ma200": 58.9641, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 50.85165844778519, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 64.46323809459054, "rsi_above_ma": false, "macd": 1.977885154239047, "macd_signal": 1.976093328544216, "macd_hist": 0.0017918256948308, "macd_bullish": true, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": -0.1634311343247481, "macd_accelerating": false, "bb_mid": 68.99499999999999, "bb_std": 3.3464002654853715, "bb_upper": 75.68780053097073, "bb_lower": 62.30219946902925, "bb_percent": 57.50806777633221, "bb_width": 19.4008276859794, "bb_squeeze": false, "near_bb_lower": false, "near_bb_upper": false, "stoch_k": 41.48892033063482, "stoch_d": 54.25474197083014, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 2.778571428571429, "atr_percent": 3.969387755102041, "vol_ma": 10735720.0, "vol_ratio": 0.3979425322248967, "vol_surge": false, "vol_above_avg": false, "mfi": 59.736317051400135, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 7535351, "obv_ma": -5637179.0, "obv_rising": true, "lr_value": 69.72682352941173, "lr_slope": 0.1870540216086428, "lr_slope_pct": 0.2672200308694897, "lr_upper": 77.60022592647756, "lr_lower": 61.8534211323459, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 51.73447718239876, "near_channel_bottom": false, "near_channel_top": false, "highest_20": 75.5, "highest_50": 75.5, "lowest_20": 61.0, "lowest_50": 60.0, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 61.0, "resistance": 75.5, "near_support": false, "near_resistance": false, "quality_score": 15.0, "momentum_score": 3, "total_score": 18.0, "quality_rating": 4, "momentum_rating": 2, "stars": 2, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 28.3, "high": 28.35, "low": 27.65, "close": 27.65, "volume": 17142400, "symbol": "HPG", "ma5": 27.38587054530989, "ma10": 27.162352068641383, "ma20": 27.012756941575034, "ma50": 26.92130524780872, "ma200": 25.8264, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 50.45408678102923, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 52.146237908317325, "rsi_above_ma": false, "macd": 0.150621841744325, "macd_signal": 0.0641071005597798, "macd_hist": 0.0865147411845451, "macd_bullish": true, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": 0.0204417859759186, "macd_accelerating": true, "bb_mid": 27.067500000000003, "bb_std": 0.5444154276786658, "bb_upper": 28.156330855357336, "bb_lower": 25.97866914464267, "bb_percent": 76.74887459029763, "bb_width": 8.04530049215726, "bb_squeeze": false, "near_bb_lower": false, "near_bb_upper": false, "stoch_k": 61.22199093914527, "stoch_d": 59.18119312574976, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 0.671428571428572, "atr_percent": 2.4283130973908573, "vol_ma": 45559930.0, "vol_ratio": 0.3762604469264889, "vol_surge": false, "vol_above_avg": false, "mfi": 61.30629996837209, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 697946790, "obv_ma": 594776750.0, "obv_rising": true, "lr_value": 27.031529411764694, "lr_slope": 0.0105522208883552, "lr_slope_pct": 0.0381635475166554, "lr_upper": 27.999635073058208, "lr_lower": 26.063423750471188, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 81.93807633211875, "near_channel_bottom": false, "near_channel_top": true, "highest_20": 28.6, "highest_50": 28.6, "lowest_20": 26.15, "lowest_50": 25.35, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 26.15, "resistance": 28.6, "near_support": false, "near_resistance": false, "quality_score": 14.0, "momentum_score": 4, "total_score": 18.0, "quality_rating": 4, "momentum_rating": 3, "stars": 4, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 14.5, "high": 14.7, "low": 14.4, "close": 14.45, "volume": 5773300, "symbol": "POW", "ma5": 14.288703177309372, "ma10": 14.184906217694143, "ma20": 14.004742227059705, "ma50": 13.426125385780336, "ma200": 12.08045, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 53.0078148664203, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 57.76825456169691, "rsi_above_ma": false, "macd": 0.2805466802588938, "macd_signal": 0.3139883859859003, "macd_hist": -0.0334417057270064, "macd_bullish": false, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": 0.0159604838653348, "macd_accelerating": true, "bb_mid": 14.232500000000002, "bb_std": 0.344228733624295, "bb_upper": 14.920957467248591, "bb_lower": 13.544042532751412, "bb_percent": 65.79618279610165, "bb_width": 9.674441837324288, "bb_squeeze": true, "near_bb_lower": false, "near_bb_upper": false, "stoch_k": 59.45624560834549, "stoch_d": 56.75368898978434, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 0.5285714285714285, "atr_percent": 3.65793376173999, "vol_ma": 19413345.0, "vol_ratio": 0.2973881988195131, "vol_surge": false, "vol_above_avg": false, "mfi": 68.47908236118202, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 600311154, "obv_ma": 568164644.0, "obv_rising": true, "lr_value": 14.550141176470584, "lr_slope": 0.0545445378151259, "lr_slope_pct": 0.3774708499316676, "lr_upper": 16.424918507466593, "lr_lower": 12.675363845474577, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 47.32798922828382, "near_channel_bottom": false, "near_channel_top": false, "highest_20": 15.2, "highest_50": 15.2, "lowest_20": 13.35, "lowest_50": 11.5, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 13.35, "resistance": 15.2, "near_support": false, "near_resistance": false, "quality_score": 16.0, "momentum_score": 2, "total_score": 18.0, "quality_rating": 5, "momentum_rating": 2, "stars": 2, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 115.8, "high": 116.8, "low": 112.2, "close": 114.9, "volume": 1395000, "symbol": "GAS", "ma5": 115.30762232287915, "ma10": 113.209026102444, "ma20": 106.54533678037424, "ma50": 90.94864881704956, "ma200": 67.41515, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 65.82616023848357, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 70.25403867070055, "rsi_above_ma": false, "macd": 9.422714993029416, "macd_signal": 10.011422964146002, "macd_hist": -0.5887079711165857, "macd_bullish": false, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": -0.3116614146729599, "macd_accelerating": false, "bb_mid": 108.53, "bb_std": 7.154542171530495, "bb_upper": 122.839084343061, "bb_lower": 94.220915656939, "bb_percent": 72.25858708803075, "bb_width": 26.368901396961185, "bb_squeeze": true, "near_bb_lower": false, "near_bb_upper": false, "stoch_k": 68.01591896389087, "stoch_d": 72.06448556888435, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 7.064285714285715, "atr_percent": 6.148203406689047, "vol_ma": 4375135.0, "vol_ratio": 0.318847231263211, "vol_surge": false, "vol_above_avg": false, "mfi": 65.74571957849335, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 54438100, "obv_ma": 50349630.0, "obv_rising": true, "lr_value": 118.00164705882356, "lr_slope": 1.3743529411764708, "lr_slope_pct": 1.1961296267854402, "lr_upper": 160.64879448597827, "lr_lower": 75.35449963166882, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 46.36353940476216, "near_channel_bottom": false, "near_channel_top": false, "highest_20": 122.8, "highest_50": 122.8, "lowest_20": 89.8, "lowest_50": 60.7, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 89.8, "resistance": 122.8, "near_support": false, "near_resistance": false, "quality_score": 15.0, "momentum_score": 2, "total_score": 17.0, "quality_rating": 4, "momentum_rating": 2, "stars": 2, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 60.0, "high": 60.7, "low": 57.5, "close": 57.9, "volume": 3753800, "symbol": "PLX", "ma5": 59.0423315774101, "ma10": 58.10793237614541, "ma20": 54.49934966364617, "ma50": 46.82608405707186, "ma200": 37.45805, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 60.80274271649073, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 79.69105926978807, "rsi_above_ma": false, "macd": 5.025070798790885, "macd_signal": 5.348526585730434, "macd_hist": -0.3234557869395482, "macd_bullish": false, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": -0.2763418849505834, "macd_accelerating": false, "bb_mid": 55.0025, "bb_std": 5.905806130633868, "bb_upper": 66.81411226126774, "bb_lower": 43.19088773873226, "bb_percent": 62.26547204525749, "bb_width": 42.94936506983407, "bb_squeeze": true, "near_bb_lower": false, "near_bb_upper": false, "stoch_k": 48.11993894782746, "stoch_d": 62.90678251553502, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 3.9928571428571424, "atr_percent": 6.896126326178139, "vol_ma": 10961720.0, "vol_ratio": 0.3424462271937043, "vol_surge": false, "vol_above_avg": false, "mfi": 63.58407933370847, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 151171589, "obv_ma": 138063434.0, "obv_rising": true, "lr_value": 59.180117647058815, "lr_slope": 0.6493109243697476, "lr_slope_pct": 1.1214351025384242, "lr_upper": 80.09027688087795, "lr_lower": 38.26995841323968, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 46.93889326322872, "near_channel_bottom": false, "near_channel_top": false, "highest_20": 64.8, "highest_50": 64.8, "lowest_20": 40.0, "lowest_50": 33.3, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 41.5, "resistance": 64.8, "near_support": false, "near_resistance": false, "quality_score": 15.0, "momentum_score": 2, "total_score": 17.0, "quality_rating": 4, "momentum_rating": 2, "stars": 2, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 91.7, "high": 91.8, "low": 90.8, "close": 91.0, "volume": 2491800, "symbol": "MWG", "ma5": 91.08100396536798, "ma10": 89.89975538746815, "ma20": 88.46744893989906, "ma50": 86.01117288697301, "ma200": 74.8819, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 61.106358394347104, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 51.82929537592753, "rsi_above_ma": true, "macd": 1.6550241357937097, "macd_signal": 1.1591037252210592, "macd_hist": 0.4959204105726504, "macd_bullish": true, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": -0.106666009316374, "macd_accelerating": false, "bb_mid": 87.65, "bb_std": 2.974010228984105, "bb_upper": 93.59802045796822, "bb_lower": 81.7019795420318, "bb_percent": 78.16062943690952, "bb_width": 13.57220868903186, "bb_squeeze": false, "near_bb_lower": false, "near_bb_upper": false, "stoch_k": 67.61840363425105, "stoch_d": 71.91007130006393, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 2.2357142857142875, "atr_percent": 2.456828885400316, "vol_ma": 7986550.0, "vol_ratio": 0.3119995101765455, "vol_surge": false, "vol_above_avg": false, "mfi": 72.5563094978229, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 585731666, "obv_ma": 555344756.0, "obv_rising": true, "lr_value": 90.08305882352936, "lr_slope": 0.1842064825930364, "lr_slope_pct": 0.2024247061461939, "lr_upper": 97.40885891217344, "lr_lower": 82.75725873488527, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 56.2579165924507, "near_channel_bottom": false, "near_channel_top": false, "highest_20": 94.4, "highest_50": 94.4, "lowest_20": 83.8, "lowest_50": 77.5, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 83.8, "resistance": 94.4, "near_support": false, "near_resistance": false, "quality_score": 14.0, "momentum_score": 3, "total_score": 17.0, "quality_rating": 4, "momentum_rating": 2, "stars": 2, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 46.7, "high": 47.4, "low": 45.2, "close": 45.7, "volume": 4840000, "symbol": "PVS", "ma5": 45.78667330287634, "ma10": 44.353426940560496, "ma20": 41.94239388763513, "ma50": 37.92144837910804, "ma200": 31.8569, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 68.3624639056394, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 66.88163966448113, "rsi_above_ma": true, "macd": 2.972827509958151, "macd_signal": 2.5406620596638816, "macd_hist": 0.4321654502942693, "macd_bullish": true, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": -0.1529843114501492, "macd_accelerating": false, "bb_mid": 41.440000000000005, "bb_std": 3.532167964057604, "bb_upper": 48.50433592811521, "bb_lower": 34.3756640718848, "bb_percent": 80.15145403155101, "bb_width": 34.094285367351375, "bb_squeeze": false, "near_bb_lower": false, "near_bb_upper": true, "stoch_k": 71.5511073180404, "stoch_d": 77.29818421105568, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 2.949999999999999, "atr_percent": 6.45514223194748, "vol_ma": 11436690.0, "vol_ratio": 0.4231993327440603, "vol_surge": false, "vol_above_avg": false, "mfi": 71.68342120481748, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 252022717, "obv_ma": 222135937.0, "obv_rising": true, "lr_value": 43.93637647058823, "lr_slope": 0.3084316926770707, "lr_slope_pct": 0.6749052356172226, "lr_upper": 53.72089442874389, "lr_lower": 34.15185851243257, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 59.01201533350174, "near_channel_bottom": false, "near_channel_top": false, "highest_20": 49.0, "highest_50": 49.0, "lowest_20": 35.0, "lowest_50": 28.2, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 35.0, "resistance": 49.0, "near_support": false, "near_resistance": false, "quality_score": 14.0, "momentum_score": 3, "total_score": 17.0, "quality_rating": 4, "momentum_rating": 2, "stars": 2, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 36.75, "high": 36.85, "low": 36.15, "close": 36.25, "volume": 4188500, "symbol": "VCI", "ma5": 36.36105127457206, "ma10": 36.193448640388766, "ma20": 35.78127281961697, "ma50": 35.56243579325, "ma200": 38.13805, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": false, "above_ma50": true, "above_ma20": true, "rsi": 62.3860255302812, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 60.17546227241066, "rsi_above_ma": true, "macd": 0.5003022252656137, "macd_signal": 0.4550072577479328, "macd_hist": 0.0452949675176809, "macd_bullish": true, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": -0.0367831774652503, "macd_accelerating": false, "bb_mid": 35.7175, "bb_std": 0.865459263537133, "bb_upper": 37.44841852707427, "bb_lower": 33.986581472925735, "bb_percent": 65.38200648011066, "bb_width": 9.692271447185645, "bb_squeeze": false, "near_bb_lower": false, "near_bb_upper": false, "stoch_k": 58.20721769499424, "stoch_d": 65.51986386751946, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 1.0964285714285715, "atr_percent": 3.0246305418719213, "vol_ma": 12762640.0, "vol_ratio": 0.3281844251515027, "vol_surge": false, "vol_above_avg": false, "mfi": 72.95005929744833, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 157242206, "obv_ma": 118413856.65, "obv_rising": true, "lr_value": 36.249388235294106, "lr_slope": 0.0663913565426168, "lr_slope_pct": 0.183148569772736, "lr_upper": 38.59756352340048, "lr_lower": 33.90121294718774, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 50.0119614738147, "near_channel_bottom": false, "near_channel_top": false, "highest_20": 37.65, "highest_50": 37.65, "lowest_20": 33.5, "lowest_50": 32.23, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 33.5, "resistance": 37.65, "near_support": false, "near_resistance": false, "quality_score": 13.0, "momentum_score": 3, "total_score": 16.0, "quality_rating": 4, "momentum_rating": 2, "stars": 2, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 119.9, "high": 120.0, "low": 115.5, "close": 115.9, "volume": 1183300, "symbol": "PNJ", "ma5": 118.72480082803378, "ma10": 117.68950172006954, "ma20": 113.332738195253, "ma50": 104.15944349379193, "ma200": 87.00110000000001, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 59.27414063807935, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 76.4342760338313, "rsi_above_ma": false, "macd": 5.938841104132436, "macd_signal": 6.1400186711735, "macd_hist": -0.2011775670410642, "macd_bullish": false, "macd_cross_up": false, "macd_cross_down": true, "macd_above_zero": true, "macd_accel": -0.5236512024450182, "macd_accelerating": false, "bb_mid": 112.86, "bb_std": 7.850269857917204, "bb_upper": 128.56053971583438, "bb_lower": 97.15946028416558, "bb_percent": 59.68119585384096, "bb_width": 27.823036887886595, "bb_squeeze": false, "near_bb_lower": false, "near_bb_upper": false, "stoch_k": 44.499777501112526, "stoch_d": 63.47241003384298, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 5.42142857142857, "atr_percent": 4.6776778010600255, "vol_ma": 2527831.85, "vol_ratio": 0.468108482726617, "vol_surge": false, "vol_above_avg": false, "mfi": 64.63930164074775, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 66337681, "obv_ma": 53908415.9, "obv_rising": true, "lr_value": 118.93875294117646, "lr_slope": 0.750863385354142, "lr_slope_pct": 0.6478545171304072, "lr_upper": 142.35299483427616, "lr_lower": 95.52451104807676, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 43.51079469955699, "near_channel_bottom": false, "near_channel_top": false, "highest_20": 127.0, "highest_50": 127.0, "lowest_20": 99.2, "lowest_50": 85.87, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 99.2, "resistance": 127.0, "near_support": false, "near_resistance": false, "quality_score": 14.0, "momentum_score": 2, "total_score": 16.0, "quality_rating": 4, "momentum_rating": 2, "stars": 2, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 39.65, "high": 39.7, "low": 38.8, "close": 38.9, "volume": 6505500, "symbol": "CTG", "ma5": 39.16536996253841, "ma10": 39.11560058070166, "ma20": 38.81087472010495, "ma50": 37.478289249624254, "ma200": 32.890950000000004, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 43.9549074361361, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 53.1980737747705, "rsi_above_ma": false, "macd": 0.5620307011401593, "macd_signal": 0.739511013828845, "macd_hist": -0.1774803126886857, "macd_bullish": false, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": -0.0194835636479954, "macd_accelerating": false, "bb_mid": 39.64, "bb_std": 1.0398127361775074, "bb_upper": 41.71962547235501, "bb_lower": 37.56037452764499, "bb_percent": 32.20833486997997, "bb_width": 10.492560405423877, "bb_squeeze": true, "near_bb_lower": false, "near_bb_upper": false, "stoch_k": 31.42767349504304, "stoch_d": 43.36390304025332, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 1.0535714285714282, "atr_percent": 2.708409842085934, "vol_ma": 21843915.0, "vol_ratio": 0.297817479246853, "vol_surge": false, "vol_above_avg": false, "mfi": 49.19656972527065, "mfi_bullish": false, "mfi_overbought": false, "mfi_oversold": false, "obv": 684941322, "obv_ma": 667304272.0, "obv_rising": true, "lr_value": 40.33967058823529, "lr_slope": 0.1398151260504198, "lr_slope_pct": 0.3594219178674033, "lr_upper": 45.28246346973295, "lr_lower": 35.39687770673764, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 35.4363104113167, "near_channel_bottom": false, "near_channel_top": false, "highest_20": 43.5, "highest_50": 43.5, "lowest_20": 37.1, "lowest_50": 33.12, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 37.8, "resistance": 43.5, "near_support": true, "near_resistance": false, "quality_score": 15.0, "momentum_score": 1, "total_score": 16.0, "quality_rating": 4, "momentum_rating": 1, "stars": 2, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 82.8, "high": 82.9, "low": 80.6, "close": 81.1, "volume": 4989300, "symbol": "MSN", "ma5": 82.22572892685457, "ma10": 81.68688970851005, "ma20": 80.60184718448498, "ma50": 79.31706750180523, "ma200": 75.983, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 49.00207927741795, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 60.799230924108095, "rsi_above_ma": false, "macd": 1.2979537239237118, "macd_signal": 1.0979856410774242, "macd_hist": 0.1999680828462875, "macd_bullish": true, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": -0.188658535475271, "macd_accelerating": false, "bb_mid": 80.47, "bb_std": 2.3315005333140317, "bb_upper": 85.13300106662805, "bb_lower": 75.80699893337194, "bb_percent": 56.75530619656888, "bb_width": 11.58941485430112, "bb_squeeze": false, "near_bb_lower": false, "near_bb_upper": false, "stoch_k": 53.68364543531115, "stoch_d": 68.77120591713066, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 2.314285714285716, "atr_percent": 2.853619869649465, "vol_ma": 9173540.0, "vol_ratio": 0.5438794027300908, "vol_surge": false, "vol_above_avg": false, "mfi": 48.44774734944234, "mfi_bullish": false, "mfi_overbought": false, "mfi_oversold": false, "obv": 89336325, "obv_ma": 102667525.0, "obv_rising": false, "lr_value": 80.83364705882352, "lr_slope": 0.1049651860744297, "lr_slope_pct": 0.1294268632237111, "lr_upper": 86.2670118598683, "lr_lower": 75.40028225777873, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 52.4506038184796, "near_channel_bottom": false, "near_channel_top": false, "highest_20": 85.5, "highest_50": 85.5, "lowest_20": 75.9, "lowest_50": 73.0, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 75.9, "resistance": 85.5, "near_support": false, "near_resistance": false, "quality_score": 14.0, "momentum_score": 2, "total_score": 16.0, "quality_rating": 4, "momentum_rating": 2, "stars": 2, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 55.8, "high": 55.8, "low": 54.7, "close": 54.9, "volume": 124800, "symbol": "SCS", "ma5": 54.85252486064762, "ma10": 54.776255620646495, "ma20": 54.45240808470415, "ma50": 53.8642566299306, "ma200": 56.037650000000006, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": false, "above_ma50": true, "above_ma20": true, "rsi": 48.07045205453113, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 60.201140784837705, "rsi_above_ma": false, "macd": 0.4840095534043414, "macd_signal": 0.5682847173098214, "macd_hist": -0.08427516390548, "macd_bullish": false, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": -0.0002293814337995, "macd_accelerating": false, "bb_mid": 54.795, "bb_std": 0.981660783947816, "bb_upper": 56.75832156789564, "bb_lower": 52.83167843210437, "bb_percent": 52.674039793505145, "bb_width": 7.166061019785139, "bb_squeeze": true, "near_bb_lower": false, "near_bb_upper": false, "stoch_k": 36.16944320333605, "stoch_d": 38.29705750941468, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 1.4928571428571418, "atr_percent": 2.719229768410094, "vol_ma": 395845.0, "vol_ratio": 0.3152741217544196, "vol_surge": false, "vol_above_avg": false, "mfi": 53.10476048824729, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": -7021296, "obv_ma": -7519406.0, "obv_rising": true, "lr_value": 55.0244470588235, "lr_slope": 0.0762304921968782, "lr_slope_pct": 0.1388533555498692, "lr_upper": 58.10152078135296, "lr_lower": 51.94737333629404, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 47.977054710020575, "near_channel_bottom": false, "near_channel_top": false, "highest_20": 57.9, "highest_50": 57.9, "lowest_20": 52.5, "lowest_50": 51.0, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 52.9, "resistance": 57.9, "near_support": false, "near_resistance": false, "quality_score": 15.0, "momentum_score": 1, "total_score": 16.0, "quality_rating": 4, "momentum_rating": 1, "stars": 2, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 175.1, "high": 175.1, "low": 170.0, "close": 170.2, "volume": 195900, "symbol": "FRT", "ma5": 170.69334643516137, "ma10": 166.2106001706997, "ma20": 160.26537290204854, "ma50": 153.08415692015777, "ma200": 142.7988, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 65.70057890887452, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 64.17226325711096, "rsi_above_ma": true, "macd": 6.59023573304367, "macd_signal": 4.492724239923357, "macd_hist": 2.0975114931203134, "macd_bullish": true, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": -0.4898938555439169, "macd_accelerating": false, "bb_mid": 156.64, "bb_std": 11.120128738368075, "bb_upper": 178.88025747673618, "bb_lower": 134.39974252326385, "bb_percent": 80.48525857711867, "bb_width": 28.396651528008377, "bb_squeeze": false, "near_bb_lower": false, "near_bb_upper": true, "stoch_k": 69.91623978763288, "stoch_d": 78.17893309358566, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 7.021428571428572, "atr_percent": 4.125398690616082, "vol_ma": 725355.0, "vol_ratio": 0.2700742807669613, "vol_surge": false, "vol_above_avg": false, "mfi": 89.91937787055016, "mfi_bullish": true, "mfi_overbought": true, "mfi_oversold": false, "obv": 26988411, "obv_ma": 23188786.0, "obv_rising": true, "lr_value": 159.9176470588235, "lr_slope": 0.3414549819927954, "lr_slope_pct": 0.200619848409398, "lr_upper": 177.98736419969174, "lr_lower": 141.84792991795524, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 78.45167527898323, "near_channel_bottom": false, "near_channel_top": true, "highest_20": 181.0, "highest_50": 181.0, "lowest_20": 142.9, "lowest_50": 139.1, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 142.9, "resistance": 181.0, "near_support": false, "near_resistance": false, "quality_score": 13.0, "momentum_score": 3, "total_score": 16.0, "quality_rating": 4, "momentum_rating": 2, "stars": 2, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 55.7, "high": 57.9, "low": 54.2, "close": 54.3, "volume": 2692800, "symbol": "DGW", "ma5": 53.23663774654993, "ma10": 50.76493920737595, "ma20": 47.97441800761828, "ma50": 44.83844343155872, "ma200": 41.42955, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 69.85178026352301, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 67.77681285689438, "rsi_above_ma": true, "macd": 3.0760574129103877, "macd_signal": 2.025004109471838, "macd_hist": 1.0510533034385494, "macd_bullish": true, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": -0.0749186691626917, "macd_accelerating": false, "bb_mid": 47.005, "bb_std": 4.290592524410464, "bb_upper": 55.58618504882093, "bb_lower": 38.42381495117908, "bb_percent": 92.50578421567975, "bb_width": 36.51179682510766, "bb_squeeze": false, "near_bb_lower": false, "near_bb_upper": true, "stoch_k": 75.59270784604848, "stoch_d": 89.33503911810014, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 2.5642857142857145, "atr_percent": 4.722441462772955, "vol_ma": 3799940.0, "vol_ratio": 0.7086425815558716, "vol_surge": false, "vol_above_avg": false, "mfi": 78.95959566204904, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 95846469, "obv_ma": 76569234.0, "obv_rising": true, "lr_value": 47.86635294117646, "lr_slope": 0.1729939975990395, "lr_slope_pct": 0.31858931417871, "lr_upper": 56.077002074081406, "lr_lower": 39.65570380827151, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 89.17813181730439, "near_channel_bottom": false, "near_channel_top": true, "highest_20": 57.1, "highest_50": 57.1, "lowest_20": 40.8, "lowest_50": 37.6, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 40.8, "resistance": 57.9, "near_support": false, "near_resistance": false, "quality_score": 13.0, "momentum_score": 3, "total_score": 16.0, "quality_rating": 4, "momentum_rating": 2, "stars": 2, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 73.0, "high": 74.3, "low": 72.5, "close": 72.8, "volume": 509200, "symbol": "GMD", "ma5": 71.39527582995697, "ma10": 69.68469881774236, "ma20": 67.51088508878212, "ma50": 65.04498671250754, "ma200": 61.38935000000001, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 68.77230880876235, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 69.42809355977167, "rsi_above_ma": false, "macd": 2.5050538769394564, "macd_signal": 1.89217288248772, "macd_hist": 0.6128809944517362, "macd_bullish": true, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": 0.0172811135211699, "macd_accelerating": true, "bb_mid": 66.925, "bb_std": 3.665324714559228, "bb_upper": 74.25564942911845, "bb_lower": 59.59435057088154, "bb_percent": 90.07148382149887, "bb_width": 21.907058435916195, "bb_squeeze": false, "near_bb_lower": false, "near_bb_upper": true, "stoch_k": 81.19588721463917, "stoch_d": 88.9694808520184, "stoch_overbought": true, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 2.771428571428571, "atr_percent": 3.806907378335949, "vol_ma": 2188090.0, "vol_ratio": 0.2327142701103381, "vol_surge": false, "vol_above_avg": false, "mfi": 64.91390512537585, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 75775483, "obv_ma": 66550038.0, "obv_rising": true, "lr_value": 68.1150588235294, "lr_slope": 0.2030636254501799, "lr_slope_pct": 0.2789335514425548, "lr_upper": 76.42222317677518, "lr_lower": 59.807894470283614, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 78.19772656185361, "near_channel_bottom": false, "near_channel_top": true, "highest_20": 75.0, "highest_50": 75.0, "lowest_20": 61.9, "lowest_50": 56.9, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 62.0, "resistance": 75.0, "near_support": false, "near_resistance": false, "quality_score": 13.0, "momentum_score": 3, "total_score": 16.0, "quality_rating": 4, "momentum_rating": 2, "stars": 2, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 33.65, "high": 34.2, "low": 32.8, "close": 33.5, "volume": 5314500, "symbol": "PVD", "ma5": 32.69840484385835, "ma10": 31.634356972271704, "ma20": 30.474648457516132, "ma50": 28.438740144454407, "ma200": 22.65535, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 68.8445588211189, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 55.3204562375957, "rsi_above_ma": true, "macd": 1.3523892192334088, "macd_signal": 0.9557211033347488, "macd_hist": 0.39666811589866, "macd_bullish": true, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": 0.0129973520004867, "macd_accelerating": true, "bb_mid": 30.075, "bb_std": 1.8682598151333976, "bb_upper": 33.811519630266794, "bb_lower": 26.338480369733205, "bb_percent": 95.83141986270589, "bb_width": 24.848010841341942, "bb_squeeze": false, "near_bb_lower": false, "near_bb_upper": true, "stoch_k": 90.3435814678418, "stoch_d": 90.545312324506, "stoch_overbought": true, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 1.578571428571429, "atr_percent": 4.712153518123668, "vol_ma": 10459730.0, "vol_ratio": 0.5080914604782857, "vol_surge": false, "vol_above_avg": false, "mfi": 71.58127787747361, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 292446066, "obv_ma": 265515746.0, "obv_rising": true, "lr_value": 31.49752941176469, "lr_slope": 0.1365930372148856, "lr_slope_pct": 0.4077404095966734, "lr_upper": 36.227136117595165, "lr_lower": 26.76792270593421, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 71.16877305034454, "near_channel_bottom": false, "near_channel_top": true, "highest_20": 33.9, "highest_50": 33.9, "lowest_20": 26.95, "lowest_50": 23.55, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 26.95, "resistance": 34.2, "near_support": false, "near_resistance": true, "quality_score": 13.0, "momentum_score": 3, "total_score": 16.0, "quality_rating": 4, "momentum_rating": 2, "stars": 2, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 52.2, "high": 52.2, "low": 50.3, "close": 50.4, "volume": 745400, "symbol": "SAB", "ma5": 50.77205362923458, "ma10": 50.50210702831528, "ma20": 50.01347664644819, "ma50": 48.69246070259721, "ma200": 45.71495, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 42.33144058271416, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 56.46154300754748, "rsi_above_ma": false, "macd": 0.6855615578247125, "macd_signal": 0.6930205192408065, "macd_hist": -0.007458961416094, "macd_bullish": false, "macd_cross_up": false, "macd_cross_down": true, "macd_above_zero": true, "macd_accel": -0.053650600217565, "macd_accelerating": false, "bb_mid": 50.4125, "bb_std": 1.7918584148719052, "bb_upper": 53.996216829743815, "bb_lower": 46.82878317025619, "bb_percent": 49.82560006002348, "bb_width": 14.217572347111584, "bb_squeeze": false, "near_bb_lower": false, "near_bb_upper": false, "stoch_k": 35.5366027007818, "stoch_d": 45.354262284396896, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 1.9428571428571413, "atr_percent": 3.854875283446709, "vol_ma": 2324364.6, "vol_ratio": 0.3206896539855864, "vol_surge": false, "vol_above_avg": false, "mfi": 58.07736114282911, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": -13660876, "obv_ma": -10223046.1, "obv_rising": false, "lr_value": 50.517741176470565, "lr_slope": 0.0719078031212481, "lr_slope_pct": 0.142674212542159, "lr_upper": 55.00454905044485, "lr_lower": 46.03093330249628, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 48.68737566712547, "near_channel_bottom": false, "near_channel_top": false, "highest_20": 57.1, "highest_50": 57.1, "lowest_20": 46.15, "lowest_50": 44.21, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 46.15, "resistance": 57.1, "near_support": false, "near_resistance": false, "quality_score": 14.0, "momentum_score": 1, "total_score": 15.0, "quality_rating": 4, "momentum_rating": 1, "stars": 2, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 22.6, "high": 23.0, "low": 22.1, "close": 22.5, "volume": 1575400, "symbol": "TNG", "ma5": 22.06133832700497, "ma10": 21.334296500322967, "ma20": 20.458301095377948, "ma50": 19.440338312947816, "ma200": 18.44395, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 66.36979890518192, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 66.51660791840644, "rsi_above_ma": false, "macd": 0.985487234083184, "macd_signal": 0.6912711358769043, "macd_hist": 0.2942160982062797, "macd_bullish": true, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": -0.0111348980623701, "macd_accelerating": false, "bb_mid": 20.273, "bb_std": 1.3213234991756286, "bb_upper": 22.915646998351257, "bb_lower": 17.630353001648743, "bb_percent": 92.13578282285567, "bb_width": 26.070606208762957, "bb_squeeze": false, "near_bb_lower": false, "near_bb_upper": true, "stoch_k": 85.71253647884738, "stoch_d": 88.19164470016926, "stoch_overbought": true, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 1.0442857142857136, "atr_percent": 4.641269841269838, "vol_ma": 2106787.05, "vol_ratio": 0.7477733699884999, "vol_surge": false, "vol_above_avg": false, "mfi": 73.62481260322221, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 90080033, "obv_ma": 85173153.6, "obv_rising": true, "lr_value": 20.554211764705883, "lr_slope": 0.0663188475390156, "lr_slope_pct": 0.2947504335067361, "lr_upper": 23.41911952758339, "lr_lower": 17.689304001828376, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 83.95753788251062, "near_channel_bottom": false, "near_channel_top": true, "highest_20": 23.2, "highest_50": 23.2, "lowest_20": 17.85, "lowest_50": 16.97, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 17.95, "resistance": 23.2, "near_support": false, "near_resistance": false, "quality_score": 13.0, "momentum_score": 2, "total_score": 15.0, "quality_rating": 4, "momentum_rating": 2, "stars": 2, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 24.55, "high": 25.15, "low": 24.15, "close": 24.45, "volume": 11185700, "symbol": "BSR", "ma5": 23.71241982256237, "ma10": 22.89970548587533, "ma20": 21.588613708456343, "ma50": 19.2921823313214, "ma200": 14.94005, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 78.27505459520616, "rsi_overbought": true, "rsi_oversold": false, "rsi_ma": 72.08831380926479, "rsi_above_ma": true, "macd": 1.6653008287943225, "macd_signal": 1.4951988796549804, "macd_hist": 0.1701019491393418, "macd_bullish": true, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": 0.0111892066550096, "macd_accelerating": true, "bb_mid": 21.695, "bb_std": 1.4484020232839967, "bb_upper": 24.591804046567997, "bb_lower": 18.798195953432007, "bb_percent": 97.55240526648674, "bb_width": 26.70480798864248, "bb_squeeze": true, "near_bb_lower": false, "near_bb_upper": true, "stoch_k": 86.2728181800357, "stoch_d": 83.96478924369559, "stoch_overbought": true, "stoch_oversold": false, "stoch_bullish_cross": true, "atr": 1.2035714285714287, "atr_percent": 4.922582529944494, "vol_ma": 29606930.0, "vol_ratio": 0.3778068047647356, "vol_surge": false, "vol_above_avg": false, "mfi": 73.61472436203277, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 672208137, "obv_ma": 571083567.0, "obv_rising": true, "lr_value": 23.077882352941167, "lr_slope": 0.2038319327731091, "lr_slope_pct": 0.8336684366998328, "lr_upper": 29.50821354065407, "lr_lower": 16.647551165228265, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 60.66863384149421, "near_channel_bottom": false, "near_channel_top": false, "highest_20": 24.8, "highest_50": 24.8, "lowest_20": 18.25, "lowest_50": 13.5, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 18.7, "resistance": 25.15, "near_support": false, "near_resistance": true, "quality_score": 13.0, "momentum_score": 2, "total_score": 15.0, "quality_rating": 4, "momentum_rating": 2, "stars": 2, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 70.7, "high": 70.8, "low": 68.9, "close": 69.0, "volume": 5872400, "symbol": "VCB", "ma5": 70.30279524904162, "ma10": 70.37569231606015, "ma20": 69.18987618658555, "ma50": 65.58257329121642, "ma200": 60.95375, "ma_aligned": false, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": false, "rsi": 35.71071464282143, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 60.309491319555136, "rsi_above_ma": false, "macd": 1.9861106008919904, "macd_signal": 2.562346921340018, "macd_hist": -0.5762363204480274, "macd_bullish": false, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": -0.1415858502001099, "macd_accelerating": false, "bb_mid": 71.37, "bb_std": 2.010524937998812, "bb_upper": 75.39104987599762, "bb_lower": 67.34895012400239, "bb_percent": 20.53008451664617, "bb_width": 11.26817956003256, "bb_squeeze": true, "near_bb_lower": false, "near_bb_upper": false, "stoch_k": 11.538313611364014, "stoch_d": 30.84998212516874, "stoch_overbought": false, "stoch_oversold": true, "stoch_bullish_cross": false, "atr": 2.5714285714285734, "atr_percent": 3.726708074534165, "vol_ma": 15322235.0, "vol_ratio": 0.383259988946783, "vol_surge": false, "vol_above_avg": false, "mfi": 53.50980395820304, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 116188191, "obv_ma": 101678196.0, "obv_rising": true, "lr_value": 72.68188235294117, "lr_slope": 0.3861992797118847, "lr_slope_pct": 0.559709101031717, "lr_upper": 86.50555326739142, "lr_lower": 58.858211438490926, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 36.68255683210312, "near_channel_bottom": false, "near_channel_top": false, "highest_20": 78.8, "highest_50": 78.8, "lowest_20": 59.7, "lowest_50": 56.0, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 65.4, "resistance": 78.8, "near_support": false, "near_resistance": false, "quality_score": 14.0, "momentum_score": 0, "total_score": 14.0, "quality_rating": 4, "momentum_rating": 1, "stars": 2, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 71.4, "high": 71.9, "low": 69.6, "close": 69.6, "volume": 696500, "symbol": "BCM", "ma5": 70.57094018532794, "ma10": 70.5091816904085, "ma20": 70.10912689923205, "ma50": 68.46569896139866, "ma200": 65.72399999999999, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": false, "rsi": 36.33041997965496, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 57.1521917735836, "rsi_above_ma": false, "macd": 0.8024456288482327, "macd_signal": 1.1560708074868555, "macd_hist": -0.3536251786386228, "macd_bullish": false, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": -0.0668528354271202, "macd_accelerating": false, "bb_mid": 71.95, "bb_std": 4.372220921850927, "bb_upper": 80.69444184370185, "bb_lower": 63.20555815629815, "bb_percent": 36.56289308109135, "bb_width": 24.3069960909016, "bb_squeeze": true, "near_bb_lower": false, "near_bb_upper": false, "stoch_k": 26.177873414275307, "stoch_d": 37.87065687265165, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 3.942857142857145, "atr_percent": 5.665024630541876, "vol_ma": 1927000.0, "vol_ratio": 0.3614424694123148, "vol_surge": false, "vol_above_avg": false, "mfi": 44.19483192845374, "mfi_bullish": false, "mfi_overbought": false, "mfi_oversold": false, "obv": 27577090, "obv_ma": 28287110.0, "obv_rising": false, "lr_value": 71.58705882352939, "lr_slope": 0.1781656662665061, "lr_slope_pct": 0.2559851526817617, "lr_upper": 81.90283156952084, "lr_lower": 61.27128607753794, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 40.368636256853314, "near_channel_bottom": false, "near_channel_top": false, "highest_20": 83.7, "highest_50": 83.7, "lowest_20": 64.6, "lowest_50": 58.5, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 64.6, "resistance": 83.7, "near_support": false, "near_resistance": false, "quality_score": 14.0, "momentum_score": 0, "total_score": 14.0, "quality_rating": 4, "momentum_rating": 1, "stars": 2, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 27.55, "high": 27.6, "low": 27.25, "close": 27.35, "volume": 6711800, "symbol": "HDB", "ma5": 27.67930050226506, "ma10": 27.9878049560184, "ma20": 28.084346102909667, "ma50": 27.20618121369184, "ma200": 22.5186, "ma_aligned": false, "ma_partial_aligned": false, "above_ma200": true, "above_ma50": true, "above_ma20": false, "rsi": 40.168529296247385, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 48.96763443578794, "rsi_above_ma": false, "macd": 0.0936155239528098, "macd_signal": 0.3837256184535924, "macd_hist": -0.2901100945007825, "macd_bullish": false, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": -0.0067127522402348, "macd_accelerating": false, "bb_mid": 28.4, "bb_std": 0.6766791978792372, "bb_upper": 29.75335839575847, "bb_lower": 27.046641604241525, "bb_percent": 11.207614949196902, "bb_width": 9.530692927876572, "bb_squeeze": true, "near_bb_lower": true, "near_bb_upper": false, "stoch_k": 5.356951537445165, "stoch_d": 13.764424241943184, "stoch_overbought": false, "stoch_oversold": true, "stoch_bullish_cross": false, "atr": 0.8714285714285717, "atr_percent": 3.186210498824759, "vol_ma": 18699730.0, "vol_ratio": 0.3589249492412484, "vol_surge": false, "vol_above_avg": false, "mfi": 23.575682660258067, "mfi_bullish": false, "mfi_overbought": false, "mfi_oversold": false, "obv": 1192789974, "obv_ma": 1199594994.0, "obv_rising": false, "lr_value": 29.53343529411764, "lr_slope": 0.1018871548619444, "lr_slope_pct": 0.3725307307566526, "lr_upper": 33.309789307270115, "lr_lower": 25.75708128096516, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 21.09041714666938, "near_channel_bottom": true, "near_channel_top": false, "highest_20": 30.0, "highest_50": 30.0, "lowest_20": 26.8, "lowest_50": 23.02, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 26.8, "resistance": 30.0, "near_support": true, "near_resistance": false, "quality_score": 12.0, "momentum_score": 1, "total_score": 13.0, "quality_rating": 4, "momentum_rating": 1, "stars": 2, "buy_signal": "PULLBACK", "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 113.7, "high": 113.7, "low": 111.1, "close": 111.2, "volume": 426600, "symbol": "VTP", "ma5": 113.2765944568738, "ma10": 114.11127755066843, "ma20": 113.31253004581912, "ma50": 109.32432420047692, "ma200": 108.12709999999998, "ma_aligned": false, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": false, "rsi": 33.63493669965516, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 57.4487479040382, "rsi_above_ma": false, "macd": 1.8521195454817416, "macd_signal": 3.04363834239847, "macd_hist": -1.1915187969167285, "macd_bullish": false, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": -0.1522818434595505, "macd_accelerating": false, "bb_mid": 116.895, "bb_std": 5.5778202684720375, "bb_upper": 128.0506405369441, "bb_lower": 105.73935946305592, "bb_percent": 24.47479604089113, "bb_width": 19.086600003326197, "bb_squeeze": true, "near_bb_lower": false, "near_bb_upper": false, "stoch_k": 0.5319120642975753, "stoch_d": 13.12050106253819, "stoch_overbought": false, "stoch_oversold": true, "stoch_bullish_cross": false, "atr": 5.021428571428573, "atr_percent": 4.515673175745119, "vol_ma": 1427125.0, "vol_ratio": 0.2989224497346415, "vol_surge": false, "vol_above_avg": false, "mfi": 46.25980047278223, "mfi_bullish": false, "mfi_overbought": false, "mfi_oversold": false, "obv": 57278922, "obv_ma": 59499597.0, "obv_rising": false, "lr_value": 117.9734117647059, "lr_slope": 0.4881392557022817, "lr_slope_pct": 0.4389741508114044, "lr_upper": 137.40538667667855, "lr_lower": 98.54143685273324, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 32.571394912805616, "near_channel_bottom": false, "near_channel_top": false, "highest_20": 131.5, "highest_50": 131.5, "lowest_20": 99.7, "lowest_50": 95.3, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 101.0, "resistance": 131.5, "near_support": false, "near_resistance": false, "quality_score": 13.0, "momentum_score": 0, "total_score": 13.0, "quality_rating": 4, "momentum_rating": 1, "stars": 2, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 34.95, "high": 35.1, "low": 34.75, "close": 34.9, "volume": 5516700, "symbol": "TCB", "ma5": 34.900529501234544, "ma10": 35.12085321844334, "ma20": 35.287814584456974, "ma50": 35.24719055538707, "ma200": 34.42105, "ma_aligned": false, "ma_partial_aligned": false, "above_ma200": true, "above_ma50": false, "above_ma20": false, "rsi": 43.37342311876968, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 47.58131215486567, "rsi_above_ma": false, "macd": -0.0942173928866836, "macd_signal": 0.0896176040715853, "macd_hist": -0.1838349969582689, "macd_bullish": false, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": false, "macd_accel": 0.0244144956104863, "macd_accelerating": true, "bb_mid": 35.775, "bb_std": 0.9392746361445414, "bb_upper": 37.65354927228909, "bb_lower": 33.89645072771091, "bb_percent": 26.71075193748369, "bb_width": 10.50202248659167, "bb_squeeze": false, "near_bb_lower": false, "near_bb_upper": false, "stoch_k": 27.27173557325188, "stoch_d": 20.60531132201254, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": true, "atr": 0.8750000000000006, "atr_percent": 2.5071633237822364, "vol_ma": 14660020.0, "vol_ratio": 0.3763091471697073, "vol_surge": false, "vol_above_avg": false, "mfi": 35.76080333887866, "mfi_bullish": false, "mfi_overbought": false, "mfi_oversold": false, "obv": 781059484, "obv_ma": 811361424.0, "obv_rising": false, "lr_value": 36.02847058823529, "lr_slope": 0.0501008403361342, "lr_slope_pct": 0.1435554164359148, "lr_upper": 38.631803616709405, "lr_lower": 33.42513755976117, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 28.325882594065867, "near_channel_bottom": true, "near_channel_top": false, "highest_20": 38.2, "highest_50": 38.2, "lowest_20": 34.15, "lowest_50": 30.5, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 34.15, "resistance": 38.2, "near_support": true, "near_resistance": false, "quality_score": 10.0, "momentum_score": 3, "total_score": 13.0, "quality_rating": 3, "momentum_rating": 2, "stars": 2, "buy_signal": "PULLBACK", "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 52.3, "high": 52.6, "low": 52.0, "close": 52.1, "volume": 160400, "symbol": "KDC", "ma5": 51.91728864992578, "ma10": 51.35924476401655, "ma20": 50.92680624680596, "ma50": 50.81063024552046, "ma200": 52.34315, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": false, "above_ma50": true, "above_ma20": true, "rsi": 69.5440518103187, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 55.573735607655465, "rsi_above_ma": true, "macd": 0.3840807527108651, "macd_signal": 0.0785842510663541, "macd_hist": 0.305496501644511, "macd_bullish": true, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": -0.0177052127674951, "macd_accelerating": false, "bb_mid": 50.5945, "bb_std": 0.9502214423352068, "bb_upper": 52.494942884670415, "bb_lower": 48.69405711532959, "bb_percent": 89.60918826195328, "bb_width": 7.512448525710942, "bb_squeeze": false, "near_bb_lower": false, "near_bb_upper": true, "stoch_k": 70.2683711251047, "stoch_d": 83.67851356242853, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 0.7535714285714293, "atr_percent": 1.446394296682206, "vol_ma": 238302.2, "vol_ratio": 0.6730920944410314, "vol_surge": false, "vol_above_avg": false, "mfi": 55.255797440292014, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": -24554338, "obv_ma": -24355472.95, "obv_rising": false, "lr_value": 50.58957647058823, "lr_slope": -0.0046376950780314, "lr_slope_pct": -0.0089015260614806, "lr_upper": 52.09264782957456, "lr_lower": 49.086505111601895, "is_uptrend_channel": false, "is_downtrend_channel": false, "is_sideways_channel": true, "channel_slope_up": false, "channel_slope_down": false, "channel_slope_flat": true, "channel_position": 100.2412370226158, "near_channel_bottom": false, "near_channel_top": true, "highest_20": 53.2, "highest_50": 53.2, "lowest_20": 48.83, "lowest_50": 46.73, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 49.22, "resistance": 53.2, "near_support": false, "near_resistance": true, "quality_score": 9.5, "momentum_score": 3, "total_score": 12.5, "quality_rating": 3, "momentum_rating": 2, "stars": 2, "buy_signal": null, "sell_signal": null, "channel": "⚪ XÁM"}, {"time": "2026-02-05", "open": 86.2, "high": 86.2, "low": 84.3, "close": 84.5, "volume": 348500, "symbol": "CTD", "ma5": 82.61100683612898, "ma10": 80.3419653840647, "ma20": 78.50949320404294, "ma50": 78.0999978218095, "ma200": 78.0125, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 69.45333819342508, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 59.19851993644732, "rsi_above_ma": true, "macd": 1.6348973014085717, "macd_signal": 0.4140678580075304, "macd_hist": 1.220829443401041, "macd_bullish": true, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": 0.04492065915693, "macd_accelerating": true, "bb_mid": 77.30999999999999, "bb_std": 3.56369116743336, "bb_upper": 84.43738233486671, "bb_lower": 70.18261766513326, "bb_percent": 100.43927533413613, "bb_width": 18.438448673824148, "bb_squeeze": false, "near_bb_lower": false, "near_bb_upper": true, "stoch_k": 78.94677483627945, "stoch_d": 89.7235599936369, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 2.9071428571428584, "atr_percent": 3.440405748098057, "vol_ma": 824135.0, "vol_ratio": 0.4228670996049196, "vol_surge": false, "vol_above_avg": false, "mfi": 71.88368905937378, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 33416696, "obv_ma": 29414946.0, "obv_rising": true, "lr_value": 76.31712941176468, "lr_slope": -0.0516845138055228, "lr_slope_pct": -0.0611651050952933, "lr_upper": 82.78463766613953, "lr_lower": 69.84962115738983, "is_uptrend_channel": false, "is_downtrend_channel": true, "is_sideways_channel": false, "channel_slope_up": false, "channel_slope_down": true, "channel_slope_flat": false, "channel_position": 113.2605093483326, "near_channel_bottom": false, "near_channel_top": true, "highest_20": 87.3, "highest_50": 87.3, "lowest_20": 72.3, "lowest_50": 69.7, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 72.3, "resistance": 87.3, "near_support": false, "near_resistance": false, "quality_score": 8.0, "momentum_score": 4, "total_score": 12.0, "quality_rating": 3, "momentum_rating": 3, "stars": 3, "buy_signal": null, "sell_signal": "CHANNEL_BREAK", "channel": "🔴 ĐỎ"}, {"time": "2026-02-05", "open": 63.8, "high": 65.0, "low": 63.3, "close": 63.8, "volume": 3944400, "symbol": "STB", "ma5": 63.40892970259951, "ma10": 62.62283523205428, "ma20": 60.7506909795719, "ma50": 57.282718979518, "ma200": 51.196000000000005, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 74.53596814950822, "rsi_overbought": true, "rsi_oversold": false, "rsi_ma": 70.11310275481183, "rsi_above_ma": true, "macd": 2.4765320947272897, "macd_signal": 2.419499690665188, "macd_hist": 0.0570324040621015, "macd_bullish": true, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": -0.0542387078899695, "macd_accelerating": false, "bb_mid": 60.08, "bb_std": 3.955755300824208, "bb_upper": 67.99151060164841, "bb_lower": 52.16848939835158, "bb_percent": 73.5100487587346, "bb_width": 26.336586556752383, "bb_squeeze": false, "near_bb_lower": false, "near_bb_upper": false, "stoch_k": 71.73835067010133, "stoch_d": 72.23482373342749, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 2.5999999999999983, "atr_percent": 4.075235109717866, "vol_ma": 14827200.0, "vol_ratio": 0.2660245854898709, "vol_surge": false, "vol_above_avg": false, "mfi": 59.78269659798463, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 717855428, "obv_ma": 697798883.0, "obv_rising": true, "lr_value": 63.799176470588215, "lr_slope": 0.3555174069627848, "lr_slope_pct": 0.5572373149886909, "lr_upper": 75.57802797899697, "lr_lower": 52.02032496217946, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 50.0032835379905, "near_channel_bottom": false, "near_channel_top": false, "highest_20": 66.4, "highest_50": 66.4, "lowest_20": 51.1, "lowest_50": 45.95, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 51.1, "resistance": 66.4, "near_support": false, "near_resistance": false, "quality_score": 11.0, "momentum_score": 0, "total_score": 11.0, "quality_rating": 3, "momentum_rating": 1, "stars": 2, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 101.2, "high": 101.9, "low": 99.0, "close": 99.4, "volume": 10305600, "symbol": "FPT", "ma5": 102.01323818451424, "ma10": 102.43444041070131, "ma20": 101.60214267932908, "ma50": 99.57203144622474, "ma200": 99.7136, "ma_aligned": false, "ma_partial_aligned": true, "above_ma200": false, "above_ma50": false, "above_ma20": false, "rsi": 37.6546980511602, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 61.4860416940055, "rsi_above_ma": false, "macd": 1.330028526050313, "macd_signal": 1.7468858079444165, "macd_hist": -0.4168572818941032, "macd_bullish": false, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": -0.302207640273485, "macd_accelerating": false, "bb_mid": 102.2, "bb_std": 2.833446850150922, "bb_upper": 107.86689370030184, "bb_lower": 96.53310629969816, "bb_percent": 25.29510744262895, "bb_width": 11.089811546578945, "bb_squeeze": false, "near_bb_lower": false, "near_bb_upper": false, "stoch_k": 13.083989869253609, "stoch_d": 34.89063965134285, "stoch_overbought": false, "stoch_oversold": true, "stoch_bullish_cross": false, "atr": 3.264285714285716, "atr_percent": 3.283989652198909, "vol_ma": 11491815.0, "vol_ratio": 0.8967773239668996, "vol_surge": false, "vol_above_avg": false, "mfi": 43.859518216010144, "mfi_bullish": false, "mfi_overbought": false, "mfi_oversold": false, "obv": -9419589, "obv_ma": 12848611.0, "obv_rising": false, "lr_value": 102.7534588235294, "lr_slope": 0.1882554621848737, "lr_slope_pct": 0.1893918130632532, "lr_upper": 110.69237834082024, "lr_lower": 94.81453930623856, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 28.879445145710932, "near_channel_bottom": true, "near_channel_top": false, "highest_20": 108.7, "highest_50": 108.7, "lowest_20": 96.0, "lowest_50": 91.0, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 96.0, "resistance": 108.7, "near_support": false, "near_resistance": false, "quality_score": 11.0, "momentum_score": 0, "total_score": 11.0, "quality_rating": 3, "momentum_rating": 1, "stars": 2, "buy_signal": "PULLBACK", "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 29.2, "high": 29.4, "low": 28.7, "close": 28.75, "volume": 1038800, "symbol": "ANV", "ma5": 28.682521883623075, "ma10": 28.212928452048757, "ma20": 27.649191761275347, "ma50": 27.470665026583998, "ma200": 24.2993, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 64.35745971912566, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 61.2955110059736, "rsi_above_ma": true, "macd": 0.5370093591941476, "macd_signal": 0.2512421112362367, "macd_hist": 0.2857672479579108, "macd_bullish": true, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": -0.0436628128699692, "macd_accelerating": false, "bb_mid": 27.227500000000003, "bb_std": 1.233573648943589, "bb_upper": 29.69464729788718, "bb_lower": 24.760352702112822, "bb_percent": 80.85547428205524, "bb_width": 18.12246660829806, "bb_squeeze": false, "near_bb_lower": false, "near_bb_upper": true, "stoch_k": 68.74828129296768, "stoch_d": 73.39093733783955, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 1.157142857142857, "atr_percent": 4.024844720496894, "vol_ma": 2035070.0, "vol_ratio": 0.5104490211889413, "vol_surge": false, "vol_above_avg": false, "mfi": 73.36767173252792, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 109255050, "obv_ma": 101541220.0, "obv_rising": true, "lr_value": 26.75058823529411, "lr_slope": -0.0234861944777913, "lr_slope_pct": -0.0816911112271003, "lr_upper": 29.297714667418308, "lr_lower": 24.203461803169912, "is_uptrend_channel": false, "is_downtrend_channel": true, "is_sideways_channel": false, "channel_slope_up": false, "channel_slope_down": true, "channel_slope_flat": false, "channel_position": 89.24662892390492, "near_channel_bottom": false, "near_channel_top": true, "highest_20": 30.0, "highest_50": 30.1, "lowest_20": 24.4, "lowest_50": 24.4, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 24.4, "resistance": 30.0, "near_support": false, "near_resistance": false, "quality_score": 8.0, "momentum_score": 3, "total_score": 11.0, "quality_rating": 3, "momentum_rating": 2, "stars": 2, "buy_signal": null, "sell_signal": "CHANNEL_BREAK", "channel": "🔴 ĐỎ"}, {"time": "2026-02-05", "open": 31.7, "high": 31.9, "low": 31.4, "close": 31.45, "volume": 5888100, "symbol": "SSI", "ma5": 31.277270298460834, "ma10": 31.305933432949104, "ma20": 31.31053091900616, "ma50": 31.273946411039923, "ma200": 29.33795, "ma_aligned": false, "ma_partial_aligned": false, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 33.77100556546169, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 49.190993393665806, "rsi_above_ma": false, "macd": 0.0533504385037417, "macd_signal": 0.1406689709242066, "macd_hist": -0.0873185324204648, "macd_bullish": false, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": 0.0304811046935525, "macd_accelerating": true, "bb_mid": 31.7375, "bb_std": 0.8489738387881769, "bb_upper": 33.43544767757636, "bb_lower": 30.03955232242365, "bb_percent": 41.53389695699051, "bb_width": 10.69994597921295, "bb_squeeze": true, "near_bb_lower": false, "near_bb_upper": false, "stoch_k": 33.92735973715225, "stoch_d": 27.21340613002535, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 0.8714285714285709, "atr_percent": 2.7708380649557105, "vol_ma": 30388575.0, "vol_ratio": 0.1937603130860755, "vol_surge": false, "vol_above_avg": false, "mfi": 49.351659820426896, "mfi_bullish": false, "mfi_overbought": false, "mfi_oversold": false, "obv": 1447389247, "obv_ma": 1426929267.0, "obv_rising": true, "lr_value": 31.96677647058823, "lr_slope": 0.0539174069627848, "lr_slope_pct": 0.1714384959071062, "lr_upper": 34.417659160392475, "lr_lower": 29.515893780783983, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 39.45653479717739, "near_channel_bottom": false, "near_channel_top": false, "highest_20": 33.9, "highest_50": 33.9, "lowest_20": 30.2, "lowest_50": 28.0, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 30.3, "resistance": 33.9, "near_support": false, "near_resistance": false, "quality_score": 11.0, "momentum_score": 0, "total_score": 11.0, "quality_rating": 3, "momentum_rating": 1, "stars": 2, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 17.4, "high": 17.55, "low": 17.2, "close": 17.2, "volume": 2753400, "symbol": "TPB", "ma5": 17.188830075174714, "ma10": 17.17920973904237, "ma20": 17.20437922772913, "ma50": 17.222084576006996, "ma200": 16.145149999999997, "ma_aligned": false, "ma_partial_aligned": false, "above_ma200": true, "above_ma50": false, "above_ma20": false, "rsi": 46.40536874419932, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 46.441311977539975, "rsi_above_ma": false, "macd": -0.0221518787133199, "macd_signal": -0.0120294423284331, "macd_hist": -0.0101224363848867, "macd_bullish": false, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": false, "macd_accel": 0.0057343835762174, "macd_accelerating": true, "bb_mid": 17.325, "bb_std": 0.3298723836178729, "bb_upper": 17.984744767235746, "bb_lower": 16.665255232764252, "bb_percent": 40.52663952730271, "bb_width": 7.616101209070671, "bb_squeeze": false, "near_bb_lower": false, "near_bb_upper": false, "stoch_k": 47.821928527954064, "stoch_d": 52.16937657594985, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 0.3714285714285716, "atr_percent": 2.159468438538207, "vol_ma": 11137130.0, "vol_ratio": 0.2472270461755366, "vol_surge": false, "vol_above_avg": false, "mfi": 62.57466231995693, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 812546185, "obv_ma": 812600800.0, "obv_rising": false, "lr_value": 17.274941176470577, "lr_slope": 0.0044873949579829, "lr_slope_pct": 0.0260895055696682, "lr_upper": 17.99753570810183, "lr_lower": 16.552346644839325, "is_uptrend_channel": false, "is_downtrend_channel": false, "is_sideways_channel": true, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 44.81133716591633, "near_channel_bottom": false, "near_channel_top": false, "highest_20": 18.5, "highest_50": 18.5, "lowest_20": 16.65, "lowest_50": 15.9, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 16.65, "resistance": 18.5, "near_support": false, "near_resistance": false, "quality_score": 9.5, "momentum_score": 1, "total_score": 10.5, "quality_rating": 3, "momentum_rating": 1, "stars": 2, "buy_signal": null, "sell_signal": null, "channel": "⚪ XÁM"}, {"time": "2026-02-05", "open": 119.0, "high": 129.9, "low": 118.9, "close": 127.0, "volume": 4120000, "symbol": "VIC", "ma5": 130.41043011387052, "ma10": 137.9075367225065, "ma20": 145.9332071378959, "ma50": 143.93578658631168, "ma200": 87.91625, "ma_aligned": false, "ma_partial_aligned": false, "above_ma200": true, "above_ma50": false, "above_ma20": false, "rsi": 21.48994651776213, "rsi_overbought": false, "rsi_oversold": true, "rsi_ma": 34.16203308388011, "rsi_above_ma": false, "macd": -7.299723678882941, "macd_signal": -2.765159943546367, "macd_hist": -4.534563735336574, "macd_bullish": false, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": false, "macd_accel": 0.3712371279773805, "macd_accelerating": true, "bb_mid": 151.655, "bb_std": 15.434563912139094, "bb_upper": 182.5241278242782, "bb_lower": 120.7858721757218, "bb_percent": 10.065279232461595, "bb_width": 40.70967369922283, "bb_squeeze": false, "near_bb_lower": true, "near_bb_upper": false, "stoch_k": 16.598326642773266, "stoch_d": 9.77804855402266, "stoch_overbought": false, "stoch_oversold": true, "stoch_bullish_cross": true, "atr": 7.757142857142858, "atr_percent": 6.107986501687289, "vol_ma": 6098505.0, "vol_ratio": 0.6755752966382258, "vol_surge": false, "vol_above_avg": false, "mfi": 16.160388589100478, "mfi_bullish": false, "mfi_overbought": false, "mfi_oversold": true, "obv": 292303446, "obv_ma": 319499306.0, "obv_rising": false, "lr_value": 156.6683529411765, "lr_slope": 0.2148307322929173, "lr_slope_pct": 0.169158056923557, "lr_upper": 187.74772630969252, "lr_lower": 125.5889795726604, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 2.270023498519912, "near_channel_bottom": true, "near_channel_top": false, "highest_20": 190.0, "highest_50": 190.0, "lowest_20": 121.6, "lowest_50": 118.75, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 118.9, "resistance": 180.2, "near_support": false, "near_resistance": false, "quality_score": 8.0, "momentum_score": 2, "total_score": 10.0, "quality_rating": 3, "momentum_rating": 2, "stars": 2, "buy_signal": "PULLBACK", "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 31.4, "high": 31.5, "low": 30.55, "close": 30.8, "volume": 339200, "symbol": "PAN", "ma5": 30.696166092562365, "ma10": 30.15927489004458, "ma20": 29.44205340670225, "ma50": 28.95479491719552, "ma200": 29.18775, "ma_aligned": true, "ma_partial_aligned": true, "above_ma200": true, "above_ma50": true, "above_ma20": true, "rsi": 74.05487466212466, "rsi_overbought": true, "rsi_oversold": false, "rsi_ma": 75.1288664921341, "rsi_above_ma": false, "macd": 0.7763600680984624, "macd_signal": 0.5256275712056445, "macd_hist": 0.2507324968928178, "macd_bullish": true, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": true, "macd_accel": -0.0410374843991002, "macd_accelerating": false, "bb_mid": 29.0725, "bb_std": 1.2812899544474323, "bb_upper": 31.635079908894863, "bb_lower": 26.509920091105137, "bb_percent": 83.70626597835536, "bb_width": 17.628892657286883, "bb_squeeze": false, "near_bb_lower": false, "near_bb_upper": true, "stoch_k": 52.3354703650399, "stoch_d": 71.96098157625424, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 0.9714285714285708, "atr_percent": 3.1539888682745807, "vol_ma": 1229160.0, "vol_ratio": 0.2759605942590108, "vol_surge": false, "vol_above_avg": false, "mfi": 74.65266821043822, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 109587156, "obv_ma": 102821366.0, "obv_rising": true, "lr_value": 29.434235294117634, "lr_slope": 0.0468259303721487, "lr_slope_pct": 0.1520322414680152, "lr_upper": 31.612496161911924, "lr_lower": 27.255974426323345, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 81.34802121391562, "near_channel_bottom": false, "near_channel_top": true, "highest_20": 33.35, "highest_50": 33.35, "lowest_20": 26.65, "lowest_50": 25.55, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 26.65, "resistance": 33.35, "near_support": false, "near_resistance": false, "quality_score": 10.0, "momentum_score": 0, "total_score": 10.0, "quality_rating": 3, "momentum_rating": 1, "stars": 2, "buy_signal": null, "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 59.6, "high": 59.9, "low": 58.3, "close": 58.3, "volume": 771700, "symbol": "HAH", "ma5": 58.36810788404472, "ma10": 58.08086154471198, "ma20": 58.097771993206585, "ma50": 58.57176159546105, "ma200": 56.815, "ma_aligned": false, "ma_partial_aligned": false, "above_ma200": true, "above_ma50": false, "above_ma20": true, "rsi": 52.28279765250237, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 49.16626700253188, "rsi_above_ma": true, "macd": -0.161607013348231, "macd_signal": -0.3705899721487168, "macd_hist": 0.2089829588004858, "macd_bullish": true, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": false, "macd_accel": -0.0137534831332454, "macd_accelerating": false, "bb_mid": 57.88000000000001, "bb_std": 1.4017282565685756, "bb_upper": 60.68345651313716, "bb_lower": 55.07654348686286, "bb_percent": 57.490752897928765, "bb_width": 9.6871337703426, "bb_squeeze": false, "near_bb_lower": false, "near_bb_upper": false, "stoch_k": 40.29790600140292, "stoch_d": 50.745511261025946, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 2.135714285714286, "atr_percent": 3.663317814261211, "vol_ma": 2195005.0, "vol_ratio": 0.3515707929727755, "vol_surge": false, "vol_above_avg": false, "mfi": 61.83771199337816, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 135300586, "obv_ma": 134658321.0, "obv_rising": true, "lr_value": 57.32752941176469, "lr_slope": -0.0576518607442984, "lr_slope_pct": -0.0988882688581448, "lr_upper": 60.55496283952438, "lr_lower": 54.100095984004994, "is_uptrend_channel": false, "is_downtrend_channel": true, "is_sideways_channel": false, "channel_slope_up": false, "channel_slope_down": true, "channel_slope_flat": false, "channel_position": 65.0646875499265, "near_channel_bottom": false, "near_channel_top": false, "highest_20": 62.3, "highest_50": 63.0, "lowest_20": 55.6, "lowest_50": 55.6, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 55.6, "resistance": 62.3, "near_support": false, "near_resistance": false, "quality_score": 7.0, "momentum_score": 3, "total_score": 10.0, "quality_rating": 2, "momentum_rating": 2, "stars": 2, "buy_signal": null, "sell_signal": "CHANNEL_BREAK", "channel": "🔴 ĐỎ"}, {"time": "2026-02-05", "open": 91.2, "high": 97.6, "low": 91.2, "close": 96.0, "volume": 5580900, "symbol": "VHM", "ma5": 98.07113366098376, "ma10": 103.87770240442742, "ma20": 110.29858359951152, "ma50": 111.87121712961437, "ma200": 95.3135, "ma_aligned": false, "ma_partial_aligned": false, "above_ma200": true, "above_ma50": false, "above_ma20": false, "rsi": 21.149289342811517, "rsi_overbought": false, "rsi_oversold": true, "rsi_ma": 32.44100396574321, "rsi_above_ma": false, "macd": -5.976726660231776, "macd_signal": -2.4081779918966406, "macd_hist": -3.5685486683351355, "macd_bullish": false, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": false, "macd_accel": 0.3790259388503991, "macd_accelerating": true, "bb_mid": 115.925, "bb_std": 13.66389306472396, "bb_upper": 143.2527861294479, "bb_lower": 88.59721387055208, "bb_percent": 13.544430738703005, "bb_width": 47.14735584118683, "bb_squeeze": false, "near_bb_lower": true, "near_bb_upper": false, "stoch_k": 14.168898722346809, "stoch_d": 7.052091750731564, "stoch_overbought": false, "stoch_oversold": true, "stoch_bullish_cross": true, "atr": 6.307142857142859, "atr_percent": 6.569940476190478, "vol_ma": 8996145.0, "vol_ratio": 0.6203656543591, "vol_surge": false, "vol_above_avg": false, "mfi": 30.965109452645976, "mfi_bullish": false, "mfi_overbought": false, "mfi_oversold": false, "obv": 318111531, "obv_ma": 366042901.0, "obv_rising": false, "lr_value": 119.09435294117644, "lr_slope": 0.253565426170468, "lr_slope_pct": 0.2641306522609042, "lr_upper": 147.61999310820502, "lr_lower": 90.56871277414784, "is_uptrend_channel": true, "is_downtrend_channel": false, "is_sideways_channel": false, "channel_slope_up": true, "channel_slope_down": false, "channel_slope_flat": false, "channel_position": 9.519992669852906, "near_channel_bottom": true, "near_channel_top": false, "highest_20": 150.9, "highest_50": 150.9, "lowest_20": 90.8, "lowest_50": 90.5, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 90.8, "resistance": 142.8, "near_support": false, "near_resistance": false, "quality_score": 8.0, "momentum_score": 2, "total_score": 10.0, "quality_rating": 3, "momentum_rating": 2, "stars": 2, "buy_signal": "PULLBACK", "sell_signal": null, "channel": "🟢 XANH"}, {"time": "2026-02-05", "open": 16.35, "high": 16.5, "low": 16.15, "close": 16.2, "volume": 4901000, "symbol": "DIG", "ma5": 16.20036804684133, "ma10": 16.172361089439825, "ma20": 16.37783784225804, "ma50": 17.455201453696436, "ma200": 18.5492, "ma_aligned": false, "ma_partial_aligned": false, "above_ma200": false, "above_ma50": false, "above_ma20": false, "rsi": 50.6477581702831, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 41.91495843742216, "rsi_above_ma": true, "macd": -0.3939103302572064, "macd_signal": -0.5320350807183367, "macd_hist": 0.1381247504611302, "macd_bullish": true, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": false, "macd_accel": -0.002068890184393, "macd_accelerating": false, "bb_mid": 16.1775, "bb_std": 0.3522390784983708, "bb_upper": 16.88197815699674, "bb_lower": 15.473021843003258, "bb_percent": 51.596926730554685, "bb_width": 8.709357527389793, "bb_squeeze": true, "near_bb_lower": false, "near_bb_upper": false, "stoch_k": 73.32844477034854, "stoch_d": 71.29912531541959, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 0.6035714285714283, "atr_percent": 3.72574955908289, "vol_ma": 12124805.0, "vol_ratio": 0.4042126529694578, "vol_surge": false, "vol_above_avg": false, "mfi": 52.33660046631258, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 320388999, "obv_ma": 307313074.0, "obv_rising": true, "lr_value": 15.129411764705871, "lr_slope": -0.1027995198079233, "lr_slope_pct": -0.6345649370859465, "lr_upper": 18.365998528188484, "lr_lower": 11.892825001223256, "is_uptrend_channel": false, "is_downtrend_channel": true, "is_sideways_channel": false, "channel_slope_up": false, "channel_slope_down": true, "channel_slope_flat": false, "channel_position": 66.53781862970364, "near_channel_bottom": false, "near_channel_top": false, "highest_20": 17.5, "highest_50": 21.0, "lowest_20": 15.1, "lowest_50": 15.1, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 15.1, "resistance": 17.05, "near_support": false, "near_resistance": false, "quality_score": 6.0, "momentum_score": 3, "total_score": 9.0, "quality_rating": 2, "momentum_rating": 2, "stars": 2, "buy_signal": null, "sell_signal": "CHANNEL_BREAK", "channel": "🔴 ĐỎ"}, {"time": "2026-02-05", "open": 14.6, "high": 14.8, "low": 14.35, "close": 14.35, "volume": 291400, "symbol": "FCN", "ma5": 14.250185825788064, "ma10": 14.226047981487971, "ma20": 14.354516668063404, "ma50": 14.735368658705353, "ma200": 15.2076, "ma_aligned": false, "ma_partial_aligned": false, "above_ma200": false, "above_ma50": false, "above_ma20": false, "rsi": 47.34516377919618, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 44.73374019217314, "rsi_above_ma": true, "macd": -0.1975641653567574, "macd_signal": -0.2399858435676444, "macd_hist": 0.0424216782108869, "macd_bullish": true, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": false, "macd_accel": 0.0160032941550959, "macd_accelerating": true, "bb_mid": 14.325, "bb_std": 0.3683176546634676, "bb_upper": 15.061635309326936, "bb_lower": 13.588364690673064, "bb_percent": 51.69690481052578, "bb_width": 10.2846116485436, "bb_squeeze": true, "near_bb_lower": false, "near_bb_upper": false, "stoch_k": 38.88672851508248, "stoch_d": 37.96085402662813, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 0.4535714285714285, "atr_percent": 3.160776505724241, "vol_ma": 1069760.0, "vol_ratio": 0.2723972924793482, "vol_surge": false, "vol_above_avg": false, "mfi": 52.307154400792406, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 98194743, "obv_ma": 97010103.0, "obv_rising": true, "lr_value": 14.209199999999996, "lr_slope": -0.0254285714285715, "lr_slope_pct": -0.1772025883524148, "lr_upper": 15.634506497650506, "lr_lower": 12.783893502349486, "is_uptrend_channel": false, "is_downtrend_channel": true, "is_sideways_channel": false, "channel_slope_up": false, "channel_slope_down": true, "channel_slope_flat": false, "channel_position": 54.93736129284181, "near_channel_bottom": false, "near_channel_top": false, "highest_20": 15.45, "highest_50": 16.7, "lowest_20": 13.6, "lowest_50": 13.6, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 13.6, "resistance": 15.45, "near_support": false, "near_resistance": false, "quality_score": 6.0, "momentum_score": 3, "total_score": 9.0, "quality_rating": 2, "momentum_rating": 2, "stars": 2, "buy_signal": null, "sell_signal": "CHANNEL_BREAK", "channel": "🔴 ĐỎ"}, {"time": "2026-02-05", "open": 15.5, "high": 15.55, "low": 15.25, "close": 15.25, "volume": 5416300, "symbol": "DXG", "ma5": 15.27897452240984, "ma10": 15.324545984196224, "ma20": 15.632596815173727, "ma50": 16.731499296762873, "ma200": 18.3357, "ma_aligned": false, "ma_partial_aligned": false, "above_ma200": false, "above_ma50": false, "above_ma20": false, "rsi": 41.08013364736814, "rsi_overbought": false, "rsi_oversold": false, "rsi_ma": 34.13075909282784, "rsi_above_ma": true, "macd": -0.4885727343324291, "macd_signal": -0.5772836796837647, "macd_hist": 0.0887109453513356, "macd_bullish": true, "macd_cross_up": false, "macd_cross_down": false, "macd_above_zero": false, "macd_accel": 0.0046051270933156, "macd_accelerating": true, "bb_mid": 15.475, "bb_std": 0.3961990462008419, "bb_upper": 16.267398092401685, "bb_lower": 14.682601907598317, "bb_percent": 35.80259075851339, "bb_width": 10.24100927175036, "bb_squeeze": true, "near_bb_lower": false, "near_bb_upper": false, "stoch_k": 41.17404858537731, "stoch_d": 42.670424629647776, "stoch_overbought": false, "stoch_oversold": false, "stoch_bullish_cross": false, "atr": 0.6178571428571429, "atr_percent": 4.05152224824356, "vol_ma": 14967315.0, "vol_ratio": 0.3618751685338908, "vol_surge": false, "vol_above_avg": false, "mfi": 53.853802504886765, "mfi_bullish": true, "mfi_overbought": false, "mfi_oversold": false, "obv": 715403160, "obv_ma": 700904360.0, "obv_rising": true, "lr_value": 14.798117647058811, "lr_slope": -0.0837503001200481, "lr_slope_pct": -0.549182295869168, "lr_upper": 17.42575723344018, "lr_lower": 12.170478060677446, "is_uptrend_channel": false, "is_downtrend_channel": true, "is_sideways_channel": false, "channel_slope_up": false, "channel_slope_down": true, "channel_slope_flat": false, "channel_position": 58.5975214744336, "near_channel_bottom": false, "near_channel_top": false, "highest_20": 17.1, "highest_50": 19.2, "lowest_20": 14.55, "lowest_50": 14.55, "breakout_20": false, "breakout_50": false, "breakdown_20": false, "breakdown_50": false, "support": 14.55, "resistance": 16.7, "near_support": false, "near_resistance": false, "quality_score": 6.0, "momentum_score": 3, "total_score": 9.0, "quality_rating": 2, "momentum_rating": 2, "stars": 2, "buy_signal": null, "sell_signal": "CHANNEL_BREAK", "channel": "🔴 ĐỎ"}];
+        
+        function showStockDetail(symbol) {
+            const stock = stockData.find(s => s.symbol === symbol);
+            if (!stock) return;
+            document.getElementById('stockModalTitle').textContent = symbol + ' - Chi tiet chi bao';
+            
+            const n = (v) => Number(v || 0);
+            const f1 = (v) => n(v).toFixed(1);
+            const f2 = (v) => n(v).toFixed(2);
+            const f3 = (v) => n(v).toFixed(3);
+            const loc = (v) => n(v).toLocaleString();
+            const yn = (v) => v ? 'YES' : 'No';
+            
+            let html = '<div class="row mb-4">';
+            html += '<div class="col-md-4"><div class="card stat-card"><div class="stat-number">' + loc(stock.close) + '</div><div class="stat-label">Gia hien tai</div></div></div>';
+            html += '<div class="col-md-4"><div class="card stat-card"><div class="stat-number">' + n(stock.quality_score) + '/' + n(stock.momentum_score) + '</div><div class="stat-label">Q / M Score</div></div></div>';
+            html += '<div class="col-md-4"><div class="card stat-card"><div class="stat-number stars">' + '⭐'.repeat(n(stock.stars)) + '</div><div class="stat-label">' + n(stock.stars) + ' Sao</div></div></div>';
+            html += '</div>';
+            
+            html += '<h6>Trend & Channel</h6><div class="indicator-grid mb-4">';
+            html += '<div class="indicator-item"><div class="indicator-label">Kenh</div><div class="indicator-value">' + (stock.channel || '-') + '</div></div>';
+            html += '<div class="indicator-item"><div class="indicator-label">LR Slope %</div><div class="indicator-value">' + f3(stock.lr_slope_pct) + '%</div></div>';
+            html += '<div class="indicator-item"><div class="indicator-label">Channel Pos</div><div class="indicator-value">' + f1(stock.channel_position) + '%</div></div>';
+            html += '<div class="indicator-item"><div class="indicator-label">MA Aligned</div><div class="indicator-value">' + yn(stock.ma_aligned) + '</div></div>';
+            html += '<div class="indicator-item"><div class="indicator-label">Above MA200</div><div class="indicator-value">' + yn(stock.above_ma200) + '</div></div>';
+            html += '</div>';
+            
+            html += '<h6>Moving Averages</h6><div class="indicator-grid mb-4">';
+            ['ma5','ma10','ma20','ma50','ma200'].forEach(k => {
+                html += '<div class="indicator-item"><div class="indicator-label">' + k.toUpperCase() + '</div><div class="indicator-value">' + loc(stock[k]) + '</div></div>';
+            });
+            html += '</div>';
+            
+            html += '<h6>Momentum</h6><div class="indicator-grid mb-4">';
+            html += '<div class="indicator-item"><div class="indicator-label">RSI</div><div class="indicator-value">' + f1(stock.rsi) + '</div></div>';
+            html += '<div class="indicator-item"><div class="indicator-label">MFI</div><div class="indicator-value">' + f1(stock.mfi) + '</div></div>';
+            html += '<div class="indicator-item"><div class="indicator-label">MACD</div><div class="indicator-value">' + (stock.macd_bullish ? 'Bullish' : 'Bearish') + '</div></div>';
+            html += '<div class="indicator-item"><div class="indicator-label">Stoch K</div><div class="indicator-value">' + f1(stock.stoch_k) + '</div></div>';
+            html += '<div class="indicator-item"><div class="indicator-label">Stoch D</div><div class="indicator-value">' + f1(stock.stoch_d) + '</div></div>';
+            html += '</div>';
+            
+            html += '<h6>Volume & Volatility</h6><div class="indicator-grid mb-4">';
+            html += '<div class="indicator-item"><div class="indicator-label">Vol Ratio</div><div class="indicator-value">' + f2(stock.vol_ratio) + 'x</div></div>';
+            html += '<div class="indicator-item"><div class="indicator-label">Vol Surge</div><div class="indicator-value">' + yn(stock.vol_surge) + '</div></div>';
+            html += '<div class="indicator-item"><div class="indicator-label">ATR %</div><div class="indicator-value">' + f2(stock.atr_percent) + '%</div></div>';
+            html += '<div class="indicator-item"><div class="indicator-label">BB %</div><div class="indicator-value">' + f1(stock.bb_percent) + '%</div></div>';
+            html += '<div class="indicator-item"><div class="indicator-label">BB Squeeze</div><div class="indicator-value">' + yn(stock.bb_squeeze) + '</div></div>';
+            html += '</div>';
+            
+            document.getElementById('stockModalBody').innerHTML = html;
+            new bootstrap.Modal(document.getElementById('stockModal')).show();
+        }
+    </script>
 </body>
 </html>
