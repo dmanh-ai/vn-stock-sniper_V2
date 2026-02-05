@@ -1,6 +1,7 @@
 """
-VN Stock Sniper - Main (với Dashboard)
+VN Stock Sniper - Main V4
 Chạy toàn bộ quy trình: Lấy data → Phân tích → AI → Gửi Telegram → Tạo Dashboard
+FIX: Dashboard lỗi không crash toàn bộ workflow
 """
 
 import os
@@ -65,7 +66,6 @@ def run():
             error_msg = "❌ Không lấy được dữ liệu!"
             print(error_msg)
             
-            # Gửi thông báo lỗi
             bot = TelegramBot()
             bot.send_message_sync(f"⚠️ VN Stock Sniper\n\n{error_msg}")
             return
@@ -102,13 +102,25 @@ def run():
         
         save_history(report, analyzed_df)
         
-        # === BƯỚC 6: TẠO DASHBOARD ===
+        # === BƯỚC 6: TẠO DASHBOARD (không crash nếu lỗi) ===
         print("\n" + "="*60)
         print("🌐 BƯỚC 6: TẠO DASHBOARD")
         print("="*60)
         
-        dashboard = DashboardGenerator()
-        dashboard.run()
+        try:
+            dashboard = DashboardGenerator()
+            dashboard.run()
+        except Exception as dash_err:
+            print(f"⚠️ Dashboard lỗi (không ảnh hưởng kết quả): {dash_err}")
+            # Tạo dashboard placeholder
+            try:
+                with open('docs/index.html', 'w', encoding='utf-8') as f:
+                    f.write(f'''<!DOCTYPE html><html><head><meta charset="UTF-8"><title>VN Stock Sniper</title>
+<style>body{{background:#0d1117;color:#e6edf3;font-family:sans-serif;text-align:center;padding:50px;}}</style></head>
+<body><h1>VN Stock Sniper</h1><p>Dashboard dang cap nhat...</p><p>Loi: {str(dash_err)[:100]}</p></body></html>''')
+                print("✅ Đã tạo dashboard placeholder")
+            except:
+                pass
         
         # === HOÀN THÀNH ===
         end_time = datetime.now()
