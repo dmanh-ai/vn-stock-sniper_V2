@@ -1,6 +1,7 @@
 """
-VN Stock Sniper - Data Fetcher V4
-Primary: FiinQuantX (fiinquant.vn)
+VN Stock Sniper - Data Fetcher V5
+Universe: VN100 (HOSE) + HNX30 (HNX) = ~130 mã
+Primary: FiinQuantX (fiinquant.vn) - tận dụng tối đa dữ liệu
 Fallback: vnstock
 """
 
@@ -10,6 +11,7 @@ from datetime import datetime, timedelta
 import time
 import os
 import threading
+import json
 
 from src.config import (
     DATA_START_DATE, DATA_SOURCE,
@@ -17,14 +19,103 @@ from src.config import (
     FIINQUANT_USERNAME, FIINQUANT_PASSWORD
 )
 
+# File lưu danh sách mã động
+SYMBOLS_CACHE_FILE = f"{DATA_DIR}/symbols_cache.json"
+FUNDAMENTAL_FILE = f"{DATA_DIR}/fundamental_data.csv"
+
+
+def get_dynamic_symbols():
+    """Lấy danh sách mã VN100 + HNX30 động từ vnstock"""
+    try:
+        from vnstock import Vnstock
+        vs = Vnstock()
+        stock = vs.stock(symbol='ACB', source='VCI')
+
+        vn100 = []
+        hnx30 = []
+
+        try:
+            vn100_data = stock.listing.symbols_by_group('VN100')
+            if vn100_data is not None:
+                if isinstance(vn100_data, pd.DataFrame):
+                    # Tìm column chứa symbol
+                    for col in ['symbol', 'ticker', 'code', 'Symbol', 'Ticker']:
+                        if col in vn100_data.columns:
+                            vn100 = vn100_data[col].tolist()
+                            break
+                    if not vn100 and len(vn100_data.columns) > 0:
+                        vn100 = vn100_data.iloc[:, 0].tolist()
+                elif isinstance(vn100_data, list):
+                    vn100 = vn100_data
+                print(f"   ✅ VN100: {len(vn100)} mã (dynamic)")
+        except Exception as e:
+            print(f"   ⚠️ VN100 dynamic fetch failed: {e}")
+
+        try:
+            hnx30_data = stock.listing.symbols_by_group('HNX30')
+            if hnx30_data is not None:
+                if isinstance(hnx30_data, pd.DataFrame):
+                    for col in ['symbol', 'ticker', 'code', 'Symbol', 'Ticker']:
+                        if col in hnx30_data.columns:
+                            hnx30 = hnx30_data[col].tolist()
+                            break
+                    if not hnx30 and len(hnx30_data.columns) > 0:
+                        hnx30 = hnx30_data.iloc[:, 0].tolist()
+                elif isinstance(hnx30_data, list):
+                    hnx30 = hnx30_data
+                print(f"   ✅ HNX30: {len(hnx30)} mã (dynamic)")
+        except Exception as e:
+            print(f"   ⚠️ HNX30 dynamic fetch failed: {e}")
+
+        if vn100 or hnx30:
+            # Lưu cache
+            cache = {
+                'vn100': [str(s) for s in vn100],
+                'hnx30': [str(s) for s in hnx30],
+                'updated': datetime.now().strftime('%Y-%m-%d %H:%M')
+            }
+            os.makedirs(DATA_DIR, exist_ok=True)
+            with open(SYMBOLS_CACHE_FILE, 'w') as f:
+                json.dump(cache, f, indent=2)
+            return vn100, hnx30
+
+    except ImportError:
+        print("   ⚠️ vnstock chưa cài để lấy danh sách động")
+    except Exception as e:
+        print(f"   ⚠️ Lỗi lấy danh sách động: {e}")
+
+    return [], []
+
+
+def load_cached_symbols():
+    """Đọc danh sách mã từ cache"""
+    try:
+        if os.path.exists(SYMBOLS_CACHE_FILE):
+            with open(SYMBOLS_CACHE_FILE, 'r') as f:
+                cache = json.load(f)
+            vn100 = cache.get('vn100', [])
+            hnx30 = cache.get('hnx30', [])
+            updated = cache.get('updated', '')
+            if vn100 or hnx30:
+                print(f"   📋 Cache: VN100={len(vn100)}, HNX30={len(hnx30)} (cập nhật: {updated})")
+                return vn100, hnx30
+    except Exception:
+        pass
+    return [], []
+
 
 class FiinQuantFetcher:
-    """Lấy dữ liệu từ FiinQuantX"""
+    """Lấy dữ liệu từ FiinQuantX - tận dụng tối đa"""
+
+    # Các fields trading data mở rộng
+    TRADING_FIELDS = ['open', 'high', 'low', 'close', 'volume', 'value']
+    BASIC_FIELDS = ['open', 'high', 'low', 'close', 'volume']
 
     def __init__(self, username: str, password: str):
         self.username = username
         self.password = password
         self.client = None
+        self._extra_fields_available = None
 
     def login(self) -> bool:
         """Đăng nhập FiinQuant"""
@@ -35,6 +126,9 @@ class FiinQuantFetcher:
                 password=self.password
             ).login()
             print("✅ FiinQuant: Đăng nhập thành công")
+
+            # Thử khám phá các method có sẵn
+            self._discover_methods()
             return True
         except ImportError:
             print("❌ FiinQuantX chưa cài đặt. Cài bằng:")
@@ -44,65 +138,55 @@ class FiinQuantFetcher:
             print(f"❌ FiinQuant: Lỗi đăng nhập - {e}")
             return False
 
-    def get_symbols(self) -> list:
-        """Lấy danh sách mã từ FiinQuant hoặc dùng danh sách cố định"""
-        # Dùng danh sách cố định VN30 + Extra
-        return DataFetcher.VN30_SYMBOLS + DataFetcher.EXTRA_SYMBOLS
+    def _discover_methods(self):
+        """Khám phá các method có sẵn trong FiinQuantX client"""
+        if not self.client:
+            return
+
+        methods = [m for m in dir(self.client) if not m.startswith('_')]
+        fetch_methods = [m for m in methods if 'fetch' in m.lower() or 'get' in m.lower()]
+        if fetch_methods:
+            print(f"   📡 FiinQuant methods: {', '.join(fetch_methods)}")
 
     def get_price_history(self, symbol: str, period: int = 500) -> pd.DataFrame:
-        """Lấy lịch sử giá 1 mã từ FiinQuant"""
+        """Lấy lịch sử giá 1 mã từ FiinQuant - thử lấy nhiều fields nhất"""
         if not self.client:
             return pd.DataFrame()
 
         try:
-            data = self.client.Fetch_Trading_Data(
-                tickers=symbol,
-                fields=['open', 'high', 'low', 'close', 'volume'],
-                adjusted=True,
-                period=period,
-                realtime=False,
-                by='1d',
-            ).get_data()
+            # Thử lấy với fields mở rộng trước
+            fields = self.TRADING_FIELDS if self._extra_fields_available is not False else self.BASIC_FIELDS
+
+            try:
+                data = self.client.Fetch_Trading_Data(
+                    tickers=symbol,
+                    fields=fields,
+                    adjusted=True,
+                    period=period,
+                    realtime=False,
+                    by='1d',
+                ).get_data()
+            except Exception:
+                # Fallback về basic fields
+                if fields != self.BASIC_FIELDS:
+                    self._extra_fields_available = False
+                    data = self.client.Fetch_Trading_Data(
+                        tickers=symbol,
+                        fields=self.BASIC_FIELDS,
+                        adjusted=True,
+                        period=period,
+                        realtime=False,
+                        by='1d',
+                    ).get_data()
+                else:
+                    raise
+
+            if self._extra_fields_available is None and data is not None:
+                self._extra_fields_available = True
 
             if data is not None and len(data) > 0:
                 df = data if isinstance(data, pd.DataFrame) else pd.DataFrame(data)
-
-                # Chuẩn hóa columns
-                col_map = {}
-                for col in df.columns:
-                    cl = col.lower().strip()
-                    if 'time' in cl or 'date' in cl:
-                        col_map[col] = 'time'
-                    elif cl in ['open', 'high', 'low', 'close', 'volume']:
-                        col_map[col] = cl
-
-                if col_map:
-                    df = df.rename(columns=col_map)
-
-                # Đảm bảo có column time
-                if 'time' not in df.columns:
-                    # Nếu index là datetime
-                    if isinstance(df.index, pd.DatetimeIndex):
-                        df['time'] = df.index
-                        df = df.reset_index(drop=True)
-                    else:
-                        # Thử tìm column datetime
-                        for col in df.columns:
-                            try:
-                                df['time'] = pd.to_datetime(df[col])
-                                break
-                            except (ValueError, TypeError):
-                                continue
-
-                df['symbol'] = symbol
-
-                # Đảm bảo có đủ columns cần thiết
-                required = ['time', 'open', 'high', 'low', 'close', 'volume', 'symbol']
-                if all(c in df.columns for c in required):
-                    return df[required]
-
-                print(f"   ⚠️ {symbol}: Thiếu columns. Có: {list(df.columns)}")
-                return pd.DataFrame()
+                return self._normalize_df(df, symbol)
 
             return pd.DataFrame()
 
@@ -110,32 +194,99 @@ class FiinQuantFetcher:
             print(f"   ❌ FiinQuant {symbol}: {e}")
             return pd.DataFrame()
 
-    def fetch_batch(self, symbols: list, period: int = 500) -> pd.DataFrame:
-        """Lấy dữ liệu nhiều mã cùng lúc"""
-        # Thử gửi nhiều mã 1 lần (FiinQuant hỗ trợ)
+    def _normalize_df(self, df: pd.DataFrame, symbol: str) -> pd.DataFrame:
+        """Chuẩn hóa DataFrame từ FiinQuant"""
+        # Map columns
+        col_map = {}
+        for col in df.columns:
+            cl = col.lower().strip()
+            if 'time' in cl or 'date' in cl:
+                col_map[col] = 'time'
+            elif cl in ['open', 'high', 'low', 'close', 'volume', 'value']:
+                col_map[col] = cl
+            elif 'ticker' in cl or 'symbol' in cl:
+                col_map[col] = 'ticker_col'
+
+        if col_map:
+            df = df.rename(columns=col_map)
+
+        # Đảm bảo có column time
+        if 'time' not in df.columns:
+            if isinstance(df.index, pd.DatetimeIndex):
+                df['time'] = df.index
+                df = df.reset_index(drop=True)
+            else:
+                for col in df.columns:
+                    try:
+                        df['time'] = pd.to_datetime(df[col])
+                        break
+                    except (ValueError, TypeError):
+                        continue
+
+        df['symbol'] = symbol
+
+        # Columns cần thiết + optional
+        required = ['time', 'open', 'high', 'low', 'close', 'volume', 'symbol']
+        optional = ['value']
+
+        if all(c in df.columns for c in required):
+            keep = required + [c for c in optional if c in df.columns]
+            return df[keep]
+
+        print(f"   ⚠️ {symbol}: Thiếu columns. Có: {list(df.columns)}")
+        return pd.DataFrame()
+
+    def fetch_fundamental(self, symbols: list) -> pd.DataFrame:
+        """Thử lấy dữ liệu cơ bản (PE, PB, EPS...) từ FiinQuant"""
         if not self.client:
             return pd.DataFrame()
 
-        try:
-            tickers_str = ','.join(symbols) if len(symbols) <= 10 else None
+        results = []
 
-            if tickers_str:
-                data = self.client.Fetch_Trading_Data(
-                    tickers=tickers_str,
-                    fields=['open', 'high', 'low', 'close', 'volume'],
-                    adjusted=True,
-                    period=period,
-                    realtime=False,
-                    by='1d',
-                ).get_data()
+        # Thử các method có thể có trong FiinQuantX
+        for method_name in ['Fetch_Financial_Data', 'Fetch_Ratio_Data',
+                            'Fetch_Fundamental_Data', 'Fetch_Market_Data']:
+            method = getattr(self.client, method_name, None)
+            if method is None:
+                continue
 
-                if data is not None and len(data) > 0:
-                    df = data if isinstance(data, pd.DataFrame) else pd.DataFrame(data)
-                    return df
+            print(f"   📊 Thử {method_name}...")
 
-        except Exception:
-            pass
+            for symbol in symbols:
+                try:
+                    # Thử các cách gọi khác nhau
+                    data = None
+                    try:
+                        data = method(
+                            tickers=symbol,
+                            fields=['pe', 'pb', 'eps', 'roe', 'roa', 'market_cap',
+                                    'dividend_yield', 'debt_to_equity'],
+                            period=1,
+                            by='quarter',
+                        ).get_data()
+                    except Exception:
+                        try:
+                            data = method(
+                                tickers=symbol,
+                                period=1,
+                            ).get_data()
+                        except Exception:
+                            pass
 
+                    if data is not None and len(data) > 0:
+                        df = data if isinstance(data, pd.DataFrame) else pd.DataFrame(data)
+                        df['symbol'] = symbol
+                        results.append(df)
+
+                except Exception:
+                    continue
+
+            if results:
+                print(f"   ✅ {method_name}: Lấy được {len(results)} mã")
+                break
+
+        if results:
+            return pd.concat(results, ignore_index=True)
         return pd.DataFrame()
 
 
@@ -171,22 +322,48 @@ class VnStockFetcher:
         except Exception:
             return pd.DataFrame()
 
+    def get_finance_ratios(self, symbol: str) -> dict:
+        """Lấy chỉ số tài chính từ vnstock"""
+        if not self.vnstock:
+            return {}
+
+        try:
+            stock = self.vnstock.stock(symbol=symbol, source=self.source)
+            ratios = stock.finance.ratio(period='year')
+            if ratios is not None and len(ratios) > 0:
+                # Lấy dòng mới nhất
+                latest = ratios.iloc[-1].to_dict()
+                return latest
+        except Exception:
+            pass
+        return {}
+
 
 class DataFetcher:
-    """Lấy dữ liệu chứng khoán Việt Nam - Hỗ trợ FiinQuant + vnstock"""
+    """Lấy dữ liệu chứng khoán Việt Nam - VN100 + HNX30"""
 
-    # Danh sách mã CỐ ĐỊNH
-    VN30_SYMBOLS = [
+    # === DANH SÁCH CỐ ĐỊNH (fallback khi không lấy được động) ===
+    # VN100: 100 mã lớn nhất trên HOSE (VN30 + VNMidCap)
+    VN100_SYMBOLS = [
+        # VN30
         'ACB', 'BCM', 'BID', 'BVH', 'CTG', 'FPT', 'GAS', 'GVR', 'HDB', 'HPG',
         'MBB', 'MSN', 'MWG', 'PLX', 'POW', 'SAB', 'SHB', 'SSB', 'SSI', 'STB',
         'TCB', 'TPB', 'VCB', 'VHM', 'VIB', 'VIC', 'VJC', 'VNM', 'VPB', 'VRE',
+        # VNMidCap (70 mã)
+        'ANV', 'APH', 'ASM', 'BAF', 'BMP', 'BSR', 'BWE', 'CII', 'CMG', 'CTD',
+        'DBC', 'DCM', 'DGC', 'DGW', 'DHC', 'DIG', 'DPM', 'DXG', 'DXS', 'EVF',
+        'FCN', 'FRT', 'GEX', 'GMD', 'HAH', 'HCM', 'HDC', 'HDG', 'HSG', 'HT1',
+        'IDI', 'IMP', 'KBC', 'KDC', 'KDH', 'KOS', 'LPB', 'MSH', 'NKG', 'NLG',
+        'NT2', 'NVL', 'ORS', 'PAN', 'PC1', 'PDR', 'PGV', 'PHR', 'PNJ', 'PPC',
+        'PVD', 'PVT', 'REE', 'SBT', 'SCS', 'SIP', 'SJS', 'STG', 'SZC', 'TCH',
+        'TLG', 'TNH', 'VCG', 'VCI', 'VGC', 'VHC', 'VND', 'VOS', 'VPI', 'VTP',
     ]
 
-    EXTRA_SYMBOLS = [
-        'VCI', 'DGW', 'PNJ', 'REE', 'GMD', 'VND', 'HCM', 'DCM', 'DPM', 'PVD',
-        'PVS', 'BSR', 'TCH', 'KDH', 'NVL', 'DXG', 'HDG', 'DIG', 'KBC', 'GEX',
-        'HSG', 'NKG', 'FRT', 'VHC', 'ANV', 'ASM', 'HAH', 'VTP', 'PAN', 'KDC',
-        'PC1', 'TNG', 'SCS', 'VCG', 'CTD', 'FCN', 'PHR', 'MSH', 'IDI', 'DBC',
+    # HNX30: 30 mã lớn nhất trên HNX
+    HNX30_SYMBOLS = [
+        'BAB', 'BVS', 'CEO', 'DTD', 'HUT', 'IDC', 'L14', 'MBS', 'NDN', 'NRC',
+        'NTP', 'PLC', 'PVB', 'PVI', 'PVS', 'S99', 'SHN', 'SHS', 'TDC', 'THD',
+        'TIG', 'TNG', 'TVS', 'VC3', 'VCS', 'VGS', 'VIX', 'VLA', 'VMC', 'VNR',
     ]
 
     def __init__(self):
@@ -200,17 +377,35 @@ class DataFetcher:
             if not self.fiinquant.login():
                 self.fiinquant = None
 
-        # Nếu không có FiinQuant hoặc source khác, dùng vnstock
+        # Nếu không có FiinQuant, dùng vnstock
         if self.fiinquant is None:
             print("📡 Sử dụng vnstock làm nguồn dữ liệu")
             fallback_source = "VCI" if self.source == "FIINQUANT" else self.source
             self.vnstock_fallback = VnStockFetcher(source=fallback_source)
 
     def get_symbols(self) -> list:
-        """Danh sách mã CỐ ĐỊNH"""
-        symbols = self.VN30_SYMBOLS + self.EXTRA_SYMBOLS
-        print(f"📋 {len(symbols)} mã (VN30 + Extra)")
-        return symbols
+        """Lấy danh sách VN100 + HNX30 (ưu tiên dynamic, fallback cố định)"""
+        print("📋 Lấy danh sách mã VN100 + HNX30...")
+
+        # 1. Thử lấy dynamic từ vnstock
+        vn100, hnx30 = get_dynamic_symbols()
+
+        # 2. Nếu không được, thử cache
+        if not vn100 and not hnx30:
+            vn100, hnx30 = load_cached_symbols()
+
+        # 3. Fallback về danh sách cố định
+        if not vn100:
+            vn100 = self.VN100_SYMBOLS
+            print(f"   📋 VN100: {len(vn100)} mã (fallback cố định)")
+        if not hnx30:
+            hnx30 = self.HNX30_SYMBOLS
+            print(f"   📋 HNX30: {len(hnx30)} mã (fallback cố định)")
+
+        # Gộp và loại trùng
+        all_symbols = list(dict.fromkeys(vn100 + hnx30))
+        print(f"   📊 Tổng: {len(all_symbols)} mã (VN100={len(vn100)} + HNX30={len(hnx30)})")
+        return all_symbols
 
     def fetch_with_timeout(self, symbol: str, timeout_sec: int = 15) -> pd.DataFrame:
         """Lấy data với timeout - tránh bị treo"""
@@ -237,12 +432,12 @@ class DataFetcher:
         return result[0]
 
     def fetch_all_data(self) -> pd.DataFrame:
-        """Lấy dữ liệu tất cả mã"""
+        """Lấy dữ liệu tất cả mã VN100 + HNX30"""
         symbols = self.get_symbols()
 
         source_name = "FiinQuant" if self.fiinquant else "vnstock"
         print(f"\n📥 Lấy dữ liệu {len(symbols)} mã từ {source_name}...")
-        print(f"⏰ Timeout: 15s/mã | Max: 20 phút\n")
+        print(f"⏰ Timeout: 15s/mã | Max: 25 phút\n")
 
         all_data = []
         ok = 0
@@ -250,10 +445,10 @@ class DataFetcher:
         t0 = time.time()
 
         for i, symbol in enumerate(symbols):
-            # Safety: max 20 phút
+            # Safety: max 25 phút (130 mã cần nhiều thời gian hơn)
             elapsed = time.time() - t0
-            if elapsed > 1200:
-                print(f"\n⚠️ QUÁ 20 PHÚT - Dừng ({ok} mã)")
+            if elapsed > 1500:
+                print(f"\n⚠️ QUÁ 25 PHÚT - Dừng ({ok} mã)")
                 break
 
             df = self.fetch_with_timeout(symbol, timeout_sec=15)
@@ -266,18 +461,11 @@ class DataFetcher:
                 fail += 1
                 print(f"   [{i+1}/{len(symbols)}] ❌ {symbol}")
 
-                # Nếu FiinQuant thất bại, thử vnstock cho mã này
-                if self.fiinquant and self.vnstock_fallback is None:
-                    pass  # Không fallback nếu chưa init vnstock
-                elif self.fiinquant and fail <= 5:
-                    pass  # Cho phép vài lỗi trước khi switch
-
                 # Nếu quá nhiều lỗi với FiinQuant, chuyển sang vnstock
                 if self.fiinquant and fail > 10 and ok == 0:
                     print("\n⚠️ FiinQuant lỗi quá nhiều, chuyển sang vnstock...")
                     self.fiinquant = None
                     self.vnstock_fallback = VnStockFetcher(source="VCI")
-                    # Reset counters
                     fail = 0
 
             time.sleep(0.3)
@@ -293,6 +481,48 @@ class DataFetcher:
             return pd.concat(all_data, ignore_index=True)
         return pd.DataFrame()
 
+    def fetch_fundamental_data(self, symbols: list = None):
+        """Lấy dữ liệu cơ bản (PE, PB, EPS...) và lưu file"""
+        if symbols is None:
+            symbols = self.get_symbols()
+
+        print(f"\n📊 Lấy dữ liệu cơ bản cho {len(symbols)} mã...")
+
+        fundamental_df = pd.DataFrame()
+
+        # Thử FiinQuant trước
+        if self.fiinquant:
+            fundamental_df = self.fiinquant.fetch_fundamental(symbols)
+
+        # Nếu FiinQuant không có, thử vnstock
+        if fundamental_df.empty and self.vnstock_fallback:
+            print("   📡 Thử lấy fundamental từ vnstock...")
+            results = []
+            for i, symbol in enumerate(symbols[:30]):  # Giới hạn 30 mã để không quá lâu
+                try:
+                    ratios = self.vnstock_fallback.get_finance_ratios(symbol)
+                    if ratios:
+                        ratios['symbol'] = symbol
+                        results.append(ratios)
+                        if (i + 1) % 10 == 0:
+                            print(f"   [{i+1}/{min(30, len(symbols))}] Đã lấy {len(results)} mã")
+                    time.sleep(0.5)
+                except Exception:
+                    continue
+
+            if results:
+                fundamental_df = pd.DataFrame(results)
+                print(f"   ✅ vnstock fundamental: {len(fundamental_df)} mã")
+
+        if not fundamental_df.empty:
+            os.makedirs(DATA_DIR, exist_ok=True)
+            fundamental_df.to_csv(FUNDAMENTAL_FILE, index=False)
+            print(f"   ✅ Saved: {FUNDAMENTAL_FILE}")
+        else:
+            print("   ⚠️ Không lấy được dữ liệu cơ bản")
+
+        return fundamental_df
+
     def save_data(self, df: pd.DataFrame):
         """Lưu file"""
         if df.empty:
@@ -301,20 +531,26 @@ class DataFetcher:
 
         os.makedirs(DATA_DIR, exist_ok=True)
         df.to_csv(RAW_DATA_FILE, index=False)
-        print(f"✅ Saved: {RAW_DATA_FILE} ({len(df)} rows)")
+        symbols_count = df['symbol'].nunique() if 'symbol' in df.columns else 0
+        print(f"✅ Saved: {RAW_DATA_FILE} ({len(df)} rows, {symbols_count} mã)")
 
     def run(self) -> pd.DataFrame:
         """Chạy lấy dữ liệu"""
-        print("="*60)
-        print("📥 BẮT ĐẦU LẤY DỮ LIỆU")
+        print("=" * 60)
+        print("📥 BẮT ĐẦU LẤY DỮ LIỆU - VN100 + HNX30")
         source_name = "FiinQuant" if self.fiinquant else "vnstock"
         print(f"📡 Nguồn: {source_name}")
-        print("="*60)
+        print("=" * 60)
 
         df = self.fetch_all_data()
 
         if not df.empty:
             self.save_data(df)
+
+            # Thử lấy thêm fundamental data
+            symbols = df['symbol'].unique().tolist() if 'symbol' in df.columns else []
+            if symbols:
+                self.fetch_fundamental_data(symbols)
 
         return df
 
@@ -322,4 +558,5 @@ class DataFetcher:
 if __name__ == "__main__":
     fetcher = DataFetcher()
     df = fetcher.run()
-    print(f"\nKết quả: {len(df)} rows")
+    symbols_count = df['symbol'].nunique() if not df.empty and 'symbol' in df.columns else 0
+    print(f"\nKết quả: {len(df)} rows, {symbols_count} mã")

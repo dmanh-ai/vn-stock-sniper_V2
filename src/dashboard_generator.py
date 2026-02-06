@@ -1,7 +1,7 @@
 """
-VN Stock Sniper - Dashboard Generator V5
-Dashboard phân tích cổ phiếu Việt Nam - Giao diện hiện đại
-Features: Heatmap, Interactive Charts, Watchlist, Advanced Filtering, Stock Detail
+VN Stock Sniper - Dashboard Generator V6
+Redesigned: Dark navy/purple theme, 3-tab layout, signal screener, score gauges
+Inspired by React StockDashboard template
 """
 
 import pandas as pd
@@ -44,8 +44,31 @@ def safe_int(val, default=0):
     return int(safe_float(val, default))
 
 
+def get_signal_label(row):
+    """Map scoring + signals to Vietnamese signal labels"""
+    buy_sig = safe_str(row.get('buy_signal', ''))
+    sell_sig = safe_str(row.get('sell_signal', ''))
+    stars = safe_int(row.get('stars', 0))
+    score = safe_float(row.get('total_score', 0))
+
+    if buy_sig and stars >= 4:
+        return 'MUA MANH'
+    if buy_sig and stars >= 3:
+        return 'MUA'
+    if sell_sig and stars <= 1:
+        return 'BAN MANH'
+    if sell_sig:
+        return 'BAN'
+
+    if score >= 28:
+        return 'MUA'
+    if score <= 8:
+        return 'BAN'
+    return 'TRUNG LAP'
+
+
 class DashboardGenerator:
-    """Tạo HTML Dashboard hiện đại"""
+    """Generate V6 HTML Dashboard - React-inspired design"""
 
     def __init__(self):
         self.timezone = pytz.timezone(TIMEZONE)
@@ -78,11 +101,10 @@ class DashboardGenerator:
         if self.analyzed_df.empty:
             return {
                 'total': 0, 'uptrend': 0, 'sideways': 0, 'downtrend': 0,
-                'star_5': 0, 'star_4': 0, 'star_3': 0, 'signals': 0,
-                'breakout': 0, 'momentum': 0, 'pullback': 0, 'reversal': 0,
-                'uptrend_pct': 0, 'sideways_pct': 0, 'downtrend_pct': 0,
-                'avg_rsi': 50, 'avg_mfi': 50, 'vol_surge_count': 0,
-                'bb_squeeze_count': 0, 'macd_bullish_count': 0,
+                'buy_strong': 0, 'buy': 0, 'neutral': 0, 'sell': 0, 'sell_strong': 0,
+                'signals': 0, 'breakout': 0, 'momentum': 0, 'pullback': 0, 'reversal': 0,
+                'avg_rsi': 50, 'avg_mfi': 50, 'avg_score': 0,
+                'vol_surge_count': 0, 'bb_squeeze_count': 0,
             }
 
         df = self.analyzed_df
@@ -97,27 +119,45 @@ class DashboardGenerator:
         pullback = len(signals_df[signals_df['buy_signal'] == 'PULLBACK']) if not signals_df.empty else 0
         reversal = len(signals_df[signals_df['buy_signal'] == 'REVERSAL']) if not signals_df.empty else 0
 
+        # Count signal labels
+        buy_strong = 0
+        buy = 0
+        neutral = 0
+        sell = 0
+        sell_strong = 0
+        for _, row in df.iterrows():
+            label = get_signal_label(row.to_dict())
+            if label == 'MUA MANH':
+                buy_strong += 1
+            elif label == 'MUA':
+                buy += 1
+            elif label == 'BAN MANH':
+                sell_strong += 1
+            elif label == 'BAN':
+                sell += 1
+            else:
+                neutral += 1
+
         return {
             'total': total,
             'uptrend': uptrend,
             'sideways': sideways,
             'downtrend': downtrend,
-            'star_5': len(df[df['stars'] >= 5]),
-            'star_4': len(df[df['stars'] == 4]),
-            'star_3': len(df[df['stars'] == 3]),
+            'buy_strong': buy_strong,
+            'buy': buy,
+            'neutral': neutral,
+            'sell': sell,
+            'sell_strong': sell_strong,
             'signals': len(signals_df),
             'breakout': breakout,
             'momentum': momentum_sig,
             'pullback': pullback,
             'reversal': reversal,
-            'uptrend_pct': round(uptrend / total * 100, 1) if total > 0 else 0,
-            'sideways_pct': round(sideways / total * 100, 1) if total > 0 else 0,
-            'downtrend_pct': round(downtrend / total * 100, 1) if total > 0 else 0,
             'avg_rsi': round(safe_float(df['rsi'].mean(), 50), 1),
             'avg_mfi': round(safe_float(df['mfi'].mean(), 50), 1),
+            'avg_score': round(safe_float(df['total_score'].mean(), 0), 1),
             'vol_surge_count': int(df['vol_surge'].sum()) if 'vol_surge' in df.columns else 0,
             'bb_squeeze_count': int(df['bb_squeeze'].sum()) if 'bb_squeeze' in df.columns else 0,
-            'macd_bullish_count': int(df['macd_bullish'].sum()) if 'macd_bullish' in df.columns else 0,
         }
 
     def get_portfolio_with_pnl(self):
@@ -158,569 +198,6 @@ class DashboardGenerator:
             clean.append(item)
         return clean
 
-    def _generate_css(self):
-        return '''
-        :root {
-            --bg-primary: #0a0e17;
-            --bg-secondary: #111827;
-            --bg-card: #1a1f2e;
-            --bg-card-hover: #242b3d;
-            --bg-input: #151a28;
-            --border: #2a3148;
-            --border-hover: #3d4663;
-            --text-primary: #e8edf5;
-            --text-secondary: #8892a8;
-            --text-muted: #5a6378;
-            --green: #22c55e;
-            --green-dim: rgba(34,197,94,0.15);
-            --red: #ef4444;
-            --red-dim: rgba(239,68,68,0.15);
-            --yellow: #eab308;
-            --yellow-dim: rgba(234,179,8,0.15);
-            --blue: #3b82f6;
-            --blue-dim: rgba(59,130,246,0.15);
-            --purple: #a855f7;
-            --purple-dim: rgba(168,85,247,0.15);
-            --cyan: #06b6d4;
-            --orange: #f97316;
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-
-        body {
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            line-height: 1.6;
-            overflow-x: hidden;
-        }
-
-        /* Scrollbar */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: var(--bg-primary); }
-        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
-
-        /* Header */
-        .header {
-            background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-card) 100%);
-            border-bottom: 1px solid var(--border);
-            padding: 16px 24px;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            backdrop-filter: blur(20px);
-        }
-        .header-inner {
-            max-width: 1600px;
-            margin: 0 auto;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 12px;
-        }
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        .logo-icon {
-            width: 40px; height: 40px;
-            background: linear-gradient(135deg, var(--blue), var(--purple));
-            border-radius: 10px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 20px; font-weight: 700;
-        }
-        .logo-text { font-size: 1.25rem; font-weight: 700; }
-        .logo-sub { font-size: 0.75rem; color: var(--text-secondary); }
-        .header-search {
-            flex: 1;
-            max-width: 400px;
-            min-width: 200px;
-        }
-        .header-search input {
-            width: 100%;
-            background: var(--bg-input);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 8px 16px;
-            color: var(--text-primary);
-            font-size: 0.875rem;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-        .header-search input:focus {
-            border-color: var(--blue);
-        }
-        .header-search input::placeholder { color: var(--text-muted); }
-        .header-time {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            text-align: right;
-        }
-
-        /* Main container */
-        .main { max-width: 1600px; margin: 0 auto; padding: 20px 24px; }
-
-        /* Stat cards row */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-            gap: 12px;
-            margin-bottom: 20px;
-        }
-        .stat-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 16px;
-            text-align: center;
-            transition: all 0.2s;
-            cursor: default;
-        }
-        .stat-card:hover { border-color: var(--border-hover); transform: translateY(-2px); }
-        .stat-icon { font-size: 1.5rem; margin-bottom: 4px; }
-        .stat-value { font-size: 1.75rem; font-weight: 700; line-height: 1.2; }
-        .stat-label { font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px; }
-        .stat-badge {
-            display: inline-block;
-            font-size: 0.65rem;
-            padding: 2px 6px;
-            border-radius: 4px;
-            margin-top: 4px;
-        }
-
-        /* Section */
-        .section {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            margin-bottom: 20px;
-            overflow: hidden;
-        }
-        .section-header {
-            padding: 16px 20px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-        .section-title {
-            font-size: 1rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .section-body { padding: 20px; }
-
-        /* Tabs */
-        .tabs {
-            display: flex;
-            gap: 4px;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 4px;
-            margin-bottom: 20px;
-            overflow-x: auto;
-        }
-        .tab {
-            padding: 8px 16px;
-            border-radius: 7px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            font-weight: 500;
-            color: var(--text-secondary);
-            white-space: nowrap;
-            transition: all 0.2s;
-            border: none;
-            background: none;
-        }
-        .tab:hover { color: var(--text-primary); background: var(--bg-card); }
-        .tab.active {
-            background: var(--blue);
-            color: #fff;
-        }
-        .tab-panel { display: none; }
-        .tab-panel.active { display: block; }
-
-        /* Filter pills */
-        .filters {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-            margin-bottom: 16px;
-        }
-        .filter-pill {
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            border: 1px solid var(--border);
-            background: var(--bg-secondary);
-            color: var(--text-secondary);
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .filter-pill:hover, .filter-pill.active {
-            border-color: var(--blue);
-            color: var(--blue);
-            background: var(--blue-dim);
-        }
-        .filter-pill .count {
-            background: var(--bg-card);
-            padding: 1px 6px;
-            border-radius: 10px;
-            font-size: 0.7rem;
-            margin-left: 4px;
-        }
-
-        /* Stock table */
-        .stock-table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            font-size: 0.85rem;
-        }
-        .stock-table thead th {
-            position: sticky;
-            top: 0;
-            background: var(--bg-secondary);
-            color: var(--text-secondary);
-            font-weight: 600;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            padding: 10px 12px;
-            border-bottom: 1px solid var(--border);
-            cursor: pointer;
-            white-space: nowrap;
-            user-select: none;
-        }
-        .stock-table thead th:hover { color: var(--text-primary); }
-        .stock-table thead th.sorted-asc::after { content: ' \\2191'; color: var(--blue); }
-        .stock-table thead th.sorted-desc::after { content: ' \\2193'; color: var(--blue); }
-        .stock-table tbody tr {
-            cursor: pointer;
-            transition: background 0.15s;
-        }
-        .stock-table tbody tr:hover { background: var(--bg-card-hover); }
-        .stock-table tbody td {
-            padding: 10px 12px;
-            border-bottom: 1px solid rgba(42,49,72,0.5);
-            white-space: nowrap;
-        }
-
-        /* Inline badges */
-        .badge-channel {
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-        .badge-green { background: var(--green-dim); color: var(--green); }
-        .badge-gray { background: rgba(136,146,168,0.15); color: var(--text-secondary); }
-        .badge-red { background: var(--red-dim); color: var(--red); }
-        .badge-signal {
-            padding: 3px 10px;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-        .badge-breakout { background: var(--green); color: #000; }
-        .badge-momentum { background: var(--blue); color: #fff; }
-        .badge-pullback { background: var(--yellow); color: #000; }
-        .badge-reversal { background: var(--purple); color: #fff; }
-
-        /* RSI bar */
-        .rsi-bar {
-            width: 60px; height: 6px;
-            background: var(--bg-secondary);
-            border-radius: 3px;
-            display: inline-block;
-            vertical-align: middle;
-            margin-left: 6px;
-            position: relative;
-        }
-        .rsi-bar-fill {
-            height: 100%;
-            border-radius: 3px;
-            position: absolute;
-            left: 0; top: 0;
-        }
-
-        /* Stars */
-        .stars-display { color: var(--yellow); letter-spacing: -2px; }
-
-        /* Signal cards */
-        .signal-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 16px;
-        }
-        .signal-card {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 16px;
-            transition: all 0.2s;
-            cursor: pointer;
-        }
-        .signal-card:hover {
-            border-color: var(--border-hover);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-        }
-        .signal-card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-        .signal-symbol { font-size: 1.1rem; font-weight: 700; }
-        .signal-metrics {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-            text-align: center;
-            margin-bottom: 12px;
-        }
-        .signal-metric-label { font-size: 0.7rem; color: var(--text-muted); }
-        .signal-metric-value { font-size: 0.9rem; font-weight: 600; }
-        .signal-levels {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            font-size: 0.8rem;
-        }
-        .signal-level {
-            display: flex;
-            justify-content: space-between;
-            padding: 4px 8px;
-            border-radius: 4px;
-            background: rgba(255,255,255,0.03);
-        }
-
-        /* Heatmap */
-        .heatmap {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-            gap: 4px;
-        }
-        .heatmap-cell {
-            padding: 8px 4px;
-            border-radius: 6px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.15s;
-            font-size: 0.75rem;
-        }
-        .heatmap-cell:hover { transform: scale(1.05); z-index: 1; }
-        .heatmap-symbol { font-weight: 700; font-size: 0.8rem; }
-        .heatmap-score { font-size: 0.65rem; opacity: 0.8; }
-
-        /* Gauge */
-        .gauge-container {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-        .gauge-ring {
-            width: 100px; height: 100px;
-            position: relative;
-        }
-        .gauge-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
-        .gauge-ring circle {
-            fill: none;
-            stroke-width: 8;
-        }
-        .gauge-ring .bg { stroke: var(--bg-secondary); }
-        .gauge-ring .fg { stroke-linecap: round; transition: stroke-dashoffset 1s ease; }
-        .gauge-value {
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 1.2rem;
-            font-weight: 700;
-        }
-        .gauge-label { font-size: 0.75rem; color: var(--text-secondary); }
-
-        /* Charts row */
-        .charts-row {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 16px;
-            margin-bottom: 20px;
-        }
-
-        /* Modal */
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.7);
-            z-index: 1000;
-            padding: 20px;
-            overflow-y: auto;
-            backdrop-filter: blur(4px);
-        }
-        .modal-overlay.show { display: flex; justify-content: center; align-items: flex-start; }
-        .modal-content {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            width: 100%;
-            max-width: 900px;
-            margin: 20px auto;
-            animation: modalIn 0.2s ease;
-        }
-        @keyframes modalIn {
-            from { opacity: 0; transform: translateY(-20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .modal-header {
-            padding: 20px 24px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .modal-close {
-            width: 32px; height: 32px;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            background: var(--bg-secondary);
-            color: var(--text-secondary);
-            cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 18px;
-            transition: all 0.2s;
-        }
-        .modal-close:hover { background: var(--red-dim); color: var(--red); border-color: var(--red); }
-        .modal-body { padding: 24px; }
-
-        /* Indicator grid in modal */
-        .ind-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-        .ind-item {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 10px;
-            text-align: center;
-        }
-        .ind-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
-        .ind-value { font-size: 1.1rem; font-weight: 600; margin-top: 2px; }
-
-        /* Portfolio */
-        .portfolio-summary {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 12px;
-            margin-bottom: 16px;
-        }
-
-        /* AI Report */
-        .ai-report-content {
-            white-space: pre-wrap;
-            line-height: 1.8;
-            font-size: 0.9rem;
-            color: var(--text-secondary);
-        }
-
-        /* Watchlist */
-        .watchlist-empty {
-            text-align: center;
-            padding: 40px;
-            color: var(--text-muted);
-        }
-        .watchlist-star {
-            cursor: pointer;
-            font-size: 1rem;
-            transition: all 0.2s;
-            opacity: 0.3;
-        }
-        .watchlist-star:hover, .watchlist-star.active { opacity: 1; color: var(--yellow); }
-
-        /* Pagination */
-        .pagination {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 0;
-            font-size: 0.85rem;
-        }
-        .pagination-info { color: var(--text-secondary); }
-        .pagination-btns { display: flex; gap: 4px; }
-        .pagination-btn {
-            padding: 6px 12px;
-            border: 1px solid var(--border);
-            background: var(--bg-secondary);
-            color: var(--text-secondary);
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .pagination-btn:hover, .pagination-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
-        .pagination-btn:disabled { opacity: 0.3; cursor: default; }
-
-        /* Green/Red coloring */
-        .c-green { color: var(--green); }
-        .c-red { color: var(--red); }
-        .c-yellow { color: var(--yellow); }
-        .c-blue { color: var(--blue); }
-        .c-purple { color: var(--purple); }
-        .c-cyan { color: var(--cyan); }
-        .c-muted { color: var(--text-muted); }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .main { padding: 12px; }
-            .stats-grid { grid-template-columns: repeat(2, 1fr); }
-            .stat-value { font-size: 1.3rem; }
-            .header-inner { flex-direction: column; text-align: center; }
-            .header-search { max-width: 100%; }
-            .signal-cards { grid-template-columns: 1fr; }
-            .heatmap { grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); }
-            .tabs { flex-wrap: nowrap; }
-        }
-        '''
-
-    def _generate_signals_data_js(self, signals):
-        items = []
-        for signal in signals:
-            symbol = safe_str(signal.get('symbol', ''))
-            signal_type = safe_str(signal.get('buy_signal', ''))
-            close = safe_float(signal.get('close', 0))
-            q_score = safe_float(signal.get('quality_score', 0))
-            m_score = safe_float(signal.get('momentum_score', 0))
-            stars = safe_int(signal.get('stars', 0))
-            rsi = safe_float(signal.get('rsi', 0))
-            channel = safe_str(signal.get('channel', ''))
-            vol_ratio = safe_float(signal.get('vol_ratio', 0))
-
-            atr = safe_float(signal.get('atr', 0))
-            if atr == 0:
-                atr = close * 0.03
-            sl = round(close - 2 * atr, 0)
-            tp1 = round(close + 3 * atr, 0)
-            tp2 = round(close + 5 * atr, 0)
-
-            items.append({
-                'symbol': symbol, 'signal': signal_type, 'close': close,
-                'q': q_score, 'm': m_score, 'stars': stars, 'rsi': rsi,
-                'channel': channel, 'vol_ratio': vol_ratio,
-                'sl': sl, 'tp1': tp1, 'tp2': tp2, 'atr': atr,
-            })
-        return items
-
     def generate_html(self):
         self.load_data()
         stats = self.get_market_stats()
@@ -729,9 +206,12 @@ class DashboardGenerator:
         all_stocks = self.analyzed_df.to_dict('records') if not self.analyzed_df.empty else []
         signals = self.signals_df.to_dict('records') if not self.signals_df.empty else []
         clean_stocks = self._clean_for_json(all_stocks)
-        signals_data = self._generate_signals_data_js(signals)
 
-        # Escape AI report for JS
+        # Add signal_label to each stock for JS
+        for stock in clean_stocks:
+            stock['signal_label'] = get_signal_label(stock)
+            stock['score_100'] = round(safe_float(stock.get('total_score', 0)) / 40 * 100, 0)
+
         ai_report_escaped = self.ai_report.replace('\\', '\\\\').replace('`', '\\`').replace('${', '\\${') if self.ai_report else ''
 
         html = f'''<!DOCTYPE html>
@@ -741,349 +221,913 @@ class DashboardGenerator:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VN Stock Sniper - Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-    <style>{self._generate_css()}</style>
+    <style>
+    :root {{
+        --bg-body: #030712;
+        --bg-card: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+        --bg-card-solid: #0f172a;
+        --bg-card-hover: #1a2340;
+        --bg-input: #0c1222;
+        --bg-header: rgba(15, 23, 42, 0.95);
+        --border: #1e293b;
+        --border-hover: #334155;
+        --text-primary: #f1f5f9;
+        --text-secondary: #94a3b8;
+        --text-muted: #475569;
+        --accent-green: #10b981;
+        --accent-green-glow: 0 0 12px rgba(16, 185, 129, 0.4);
+        --accent-red: #ef4444;
+        --accent-red-glow: 0 0 12px rgba(239, 68, 68, 0.4);
+        --accent-blue: #3b82f6;
+        --accent-purple: #8b5cf6;
+        --accent-yellow: #f59e0b;
+        --accent-cyan: #06b6d4;
+        --accent-orange: #f97316;
+    }}
+
+    * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+
+    body {{
+        background: var(--bg-body);
+        color: var(--text-primary);
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        line-height: 1.6;
+        overflow-x: hidden;
+    }}
+
+    .mono {{ font-family: 'JetBrains Mono', monospace; }}
+
+    ::-webkit-scrollbar {{ width: 5px; height: 5px; }}
+    ::-webkit-scrollbar-track {{ background: var(--bg-body); }}
+    ::-webkit-scrollbar-thumb {{ background: var(--border); border-radius: 3px; }}
+
+    /* === MARKET TICKER === */
+    .ticker-bar {{
+        background: linear-gradient(90deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+        border-bottom: 1px solid var(--border);
+        padding: 8px 0;
+        overflow: hidden;
+        position: relative;
+    }}
+    .ticker-track {{
+        display: flex;
+        animation: ticker 40s linear infinite;
+        gap: 32px;
+        width: max-content;
+    }}
+    @keyframes ticker {{ from {{ transform: translateX(0); }} to {{ transform: translateX(-50%); }} }}
+    .ticker-item {{
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        white-space: nowrap;
+        font-size: 0.8rem;
+    }}
+    .ticker-symbol {{ font-weight: 600; color: var(--text-primary); font-family: 'JetBrains Mono', monospace; }}
+    .ticker-price {{ color: var(--text-secondary); font-family: 'JetBrains Mono', monospace; }}
+
+    /* === HEADER === */
+    .header {{
+        background: var(--bg-header);
+        border-bottom: 1px solid var(--border);
+        padding: 16px 24px;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        backdrop-filter: blur(20px);
+    }}
+    .header-inner {{
+        max-width: 1600px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+    }}
+    .logo {{ display: flex; align-items: center; gap: 12px; }}
+    .logo-icon {{
+        width: 42px; height: 42px;
+        background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 18px; font-weight: 700; color: #fff;
+        font-family: 'JetBrains Mono', monospace;
+        box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+    }}
+    .logo-text {{ font-size: 1.2rem; font-weight: 700; letter-spacing: -0.5px; }}
+    .logo-sub {{ font-size: 0.7rem; color: var(--text-muted); }}
+    .header-search {{
+        flex: 1; max-width: 360px; min-width: 180px;
+    }}
+    .header-search input {{
+        width: 100%;
+        background: var(--bg-input);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 8px 16px 8px 36px;
+        color: var(--text-primary);
+        font-size: 0.85rem;
+        outline: none;
+        transition: border-color 0.2s;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: 12px center;
+    }}
+    .header-search input:focus {{ border-color: var(--accent-blue); }}
+    .header-search input::placeholder {{ color: var(--text-muted); }}
+    .header-right {{ text-align: right; }}
+    .header-time {{ font-size: 0.75rem; color: var(--text-muted); }}
+    .header-badge {{
+        display: inline-block;
+        background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        margin-top: 4px;
+    }}
+
+    /* === MAIN === */
+    .main {{ max-width: 1600px; margin: 0 auto; padding: 20px 24px; }}
+
+    /* === TABS === */
+    .tabs {{
+        display: flex;
+        gap: 2px;
+        background: rgba(15, 23, 42, 0.8);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 4px;
+        margin-bottom: 24px;
+    }}
+    .tab {{
+        flex: 1;
+        padding: 10px 20px;
+        border-radius: 9px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        white-space: nowrap;
+        transition: all 0.25s;
+        border: none;
+        background: none;
+        text-align: center;
+    }}
+    .tab:hover {{ color: var(--text-primary); background: rgba(59, 130, 246, 0.1); }}
+    .tab.active {{
+        background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+        color: #fff;
+        box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+    }}
+    .tab-panel {{ display: none; }}
+    .tab-panel.active {{ display: block; }}
+
+    /* === SIGNAL SUMMARY CARDS === */
+    .signal-summary {{
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 12px;
+        margin-bottom: 24px;
+    }}
+    .signal-summary-card {{
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.25s;
+        position: relative;
+        overflow: hidden;
+    }}
+    .signal-summary-card::before {{
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 3px;
+    }}
+    .signal-summary-card:hover {{ border-color: var(--border-hover); transform: translateY(-2px); }}
+    .signal-summary-card.active {{ border-color: var(--accent-blue); }}
+    .ssc-buy-strong::before {{ background: var(--accent-green); box-shadow: var(--accent-green-glow); }}
+    .ssc-buy::before {{ background: var(--accent-green); opacity: 0.7; }}
+    .ssc-neutral::before {{ background: var(--text-muted); }}
+    .ssc-sell::before {{ background: var(--accent-orange); }}
+    .ssc-sell-strong::before {{ background: var(--accent-red); box-shadow: var(--accent-red-glow); }}
+    .ssc-count {{ font-size: 2rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; line-height: 1; }}
+    .ssc-label {{ font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px; }}
+
+    /* === STAT CARDS === */
+    .stat-row {{
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+        margin-bottom: 24px;
+    }}
+    .stat-card {{
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 20px;
+        transition: all 0.2s;
+    }}
+    .stat-card:hover {{ border-color: var(--border-hover); }}
+    .stat-card-label {{ font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }}
+    .stat-card-value {{ font-size: 1.5rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; }}
+    .stat-card-sub {{ font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px; }}
+
+    /* === SECTION === */
+    .section {{
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        margin-bottom: 24px;
+        overflow: hidden;
+    }}
+    .section-header {{
+        padding: 16px 24px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 8px;
+    }}
+    .section-title {{ font-size: 1rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }}
+    .section-body {{ padding: 24px; }}
+
+    /* === CHARTS GRID === */
+    .charts-grid {{
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }}
+
+    /* === SIGNAL BADGES === */
+    .signal-badge {{
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        font-family: 'JetBrains Mono', monospace;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+    }}
+    .signal-mua-manh {{
+        background: rgba(16, 185, 129, 0.15);
+        color: var(--accent-green);
+        box-shadow: var(--accent-green-glow);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+    }}
+    .signal-mua {{
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--accent-green);
+        border: 1px solid rgba(16, 185, 129, 0.2);
+    }}
+    .signal-trung-lap {{
+        background: rgba(148, 163, 184, 0.1);
+        color: var(--text-secondary);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+    }}
+    .signal-ban {{
+        background: rgba(249, 115, 22, 0.1);
+        color: var(--accent-orange);
+        border: 1px solid rgba(249, 115, 22, 0.2);
+    }}
+    .signal-ban-manh {{
+        background: rgba(239, 68, 68, 0.15);
+        color: var(--accent-red);
+        box-shadow: var(--accent-red-glow);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+    }}
+
+    /* === BUY TYPE BADGES === */
+    .type-badge {{
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        font-family: 'JetBrains Mono', monospace;
+    }}
+    .type-breakout {{ background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }}
+    .type-momentum {{ background: rgba(59, 130, 246, 0.2); color: var(--accent-blue); }}
+    .type-pullback {{ background: rgba(245, 158, 11, 0.2); color: var(--accent-yellow); }}
+    .type-reversal {{ background: rgba(139, 92, 246, 0.2); color: var(--accent-purple); }}
+
+    /* === FILTER PILLS === */
+    .filters {{ display: flex; gap: 6px; flex-wrap: wrap; }}
+    .filter-pill {{
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all 0.2s;
+    }}
+    .filter-pill:hover {{ border-color: var(--accent-blue); color: var(--accent-blue); }}
+    .filter-pill.active {{
+        background: linear-gradient(135deg, rgba(59,130,246,0.2), rgba(139,92,246,0.2));
+        border-color: var(--accent-blue);
+        color: var(--accent-blue);
+    }}
+    .filter-pill .cnt {{
+        background: rgba(59,130,246,0.2);
+        padding: 1px 6px;
+        border-radius: 10px;
+        font-size: 0.7rem;
+        margin-left: 4px;
+        font-family: 'JetBrains Mono', monospace;
+    }}
+
+    /* === SCREENER TABLE === */
+    .screener-table {{
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: 0.85rem;
+    }}
+    .screener-table thead th {{
+        position: sticky;
+        top: 0;
+        background: rgba(15, 23, 42, 0.95);
+        color: var(--text-muted);
+        font-weight: 600;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--border);
+        cursor: pointer;
+        white-space: nowrap;
+        user-select: none;
+        transition: color 0.2s;
+    }}
+    .screener-table thead th:hover {{ color: var(--text-primary); }}
+    .screener-table thead th.sorted-asc::after {{ content: ' \\2191'; color: var(--accent-blue); }}
+    .screener-table thead th.sorted-desc::after {{ content: ' \\2193'; color: var(--accent-blue); }}
+    .screener-table tbody tr {{
+        cursor: pointer;
+        transition: background 0.15s;
+        border-bottom: 1px solid rgba(30, 41, 59, 0.5);
+    }}
+    .screener-table tbody tr:hover {{ background: rgba(59, 130, 246, 0.05); }}
+    .screener-table tbody td {{
+        padding: 12px 14px;
+        border-bottom: 1px solid rgba(30, 41, 59, 0.3);
+        white-space: nowrap;
+        vertical-align: middle;
+    }}
+    .screener-table .stock-name {{
+        font-weight: 700;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.9rem;
+    }}
+
+    /* === SCORE GAUGE (SVG circle) === */
+    .score-gauge {{ position: relative; display: inline-block; }}
+    .score-gauge svg {{ transform: rotate(-90deg); }}
+    .score-gauge .gauge-val {{
+        position: absolute;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        font-family: 'JetBrains Mono', monospace;
+        font-weight: 700;
+        font-size: 0.8rem;
+    }}
+
+    /* === MINI SPARKLINE === */
+    .sparkline {{ display: inline-block; vertical-align: middle; }}
+
+    /* === EXPAND ROW === */
+    .expand-row {{ display: none; }}
+    .expand-row.show {{ display: table-row; }}
+    .expand-content {{
+        background: rgba(15, 23, 42, 0.5);
+        padding: 20px;
+        border-bottom: 1px solid var(--border);
+    }}
+    .expand-grid {{
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+    }}
+    .expand-section-title {{
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: 12px;
+        font-weight: 600;
+    }}
+    .ind-list {{ display: flex; flex-direction: column; gap: 6px; }}
+    .ind-row {{
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 4px 0;
+        font-size: 0.8rem;
+    }}
+    .ind-row-label {{ color: var(--text-secondary); }}
+    .ind-row-value {{ font-family: 'JetBrains Mono', monospace; font-weight: 600; }}
+
+    /* === PORTFOLIO TABLE === */
+    .portfolio-grid {{
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
+        margin-bottom: 24px;
+    }}
+    .pf-card {{
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+    }}
+    .pf-value {{ font-size: 1.5rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; }}
+    .pf-label {{ font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }}
+
+    /* === WEIGHT BAR === */
+    .weight-bar {{
+        height: 6px;
+        background: rgba(30, 41, 59, 0.5);
+        border-radius: 3px;
+        overflow: hidden;
+        margin-top: 4px;
+    }}
+    .weight-bar-fill {{
+        height: 100%;
+        border-radius: 3px;
+        transition: width 0.5s ease;
+    }}
+
+    /* === AI REPORT === */
+    .ai-report {{
+        line-height: 1.9;
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+    }}
+    .ai-report h2 {{
+        color: var(--text-primary);
+        font-size: 1.2rem;
+        margin: 28px 0 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }}
+    .ai-report h3 {{
+        color: var(--accent-blue);
+        font-size: 1rem;
+        margin: 20px 0 8px;
+    }}
+    .ai-report strong {{ color: var(--text-primary); }}
+    .ai-report ul, .ai-report ol {{ padding-left: 20px; margin: 8px 0; }}
+    .ai-report li {{ margin-bottom: 4px; }}
+    .ai-report p {{ margin: 8px 0; }}
+    .ai-report hr {{ border: none; border-top: 1px solid var(--border); margin: 24px 0; }}
+    .ai-report code {{
+        background: rgba(59, 130, 246, 0.1);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.85em;
+        color: var(--accent-blue);
+    }}
+    .ai-report table {{
+        width: 100%;
+        border-collapse: collapse;
+        margin: 12px 0;
+        font-size: 0.85rem;
+    }}
+    .ai-report table th, .ai-report table td {{
+        padding: 8px 12px;
+        border: 1px solid var(--border);
+        text-align: left;
+    }}
+    .ai-report table th {{
+        background: rgba(15, 23, 42, 0.5);
+        color: var(--text-primary);
+        font-weight: 600;
+    }}
+
+    /* === PAGINATION === */
+    .pagination {{
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 24px;
+        font-size: 0.85rem;
+    }}
+    .pagination-info {{ color: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; }}
+    .pagination-btns {{ display: flex; gap: 4px; }}
+    .pg-btn {{
+        padding: 6px 12px;
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--text-secondary);
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.8rem;
+    }}
+    .pg-btn:hover, .pg-btn.active {{
+        background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+        color: #fff;
+        border-color: transparent;
+    }}
+    .pg-btn:disabled {{ opacity: 0.3; cursor: default; }}
+
+    /* === UTILITY === */
+    .c-green {{ color: var(--accent-green); }}
+    .c-red {{ color: var(--accent-red); }}
+    .c-blue {{ color: var(--accent-blue); }}
+    .c-purple {{ color: var(--accent-purple); }}
+    .c-yellow {{ color: var(--accent-yellow); }}
+    .c-cyan {{ color: var(--accent-cyan); }}
+    .c-muted {{ color: var(--text-muted); }}
+
+    /* === CHANNEL BADGE === */
+    .ch-badge {{
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }}
+    .ch-green {{ background: rgba(16, 185, 129, 0.15); color: var(--accent-green); }}
+    .ch-gray {{ background: rgba(148, 163, 184, 0.1); color: var(--text-secondary); }}
+    .ch-red {{ background: rgba(239, 68, 68, 0.15); color: var(--accent-red); }}
+
+    /* === RSI BAR === */
+    .rsi-bar {{
+        width: 50px; height: 4px;
+        background: rgba(30,41,59,0.5);
+        border-radius: 2px;
+        display: inline-block;
+        vertical-align: middle;
+        margin-left: 6px;
+        overflow: hidden;
+    }}
+    .rsi-bar-fill {{
+        height: 100%;
+        border-radius: 2px;
+    }}
+
+    /* === HEATMAP === */
+    .heatmap {{
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(85px, 1fr));
+        gap: 4px;
+    }}
+    .heatmap-cell {{
+        padding: 10px 4px;
+        border-radius: 8px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.15s;
+        font-family: 'JetBrains Mono', monospace;
+    }}
+    .heatmap-cell:hover {{ transform: scale(1.08); z-index: 1; }}
+    .hm-sym {{ font-weight: 700; font-size: 0.8rem; }}
+    .hm-val {{ font-size: 0.65rem; opacity: 0.8; margin-top: 2px; }}
+
+    /* === RESPONSIVE === */
+    @media (max-width: 900px) {{
+        .signal-summary {{ grid-template-columns: repeat(3, 1fr); }}
+        .expand-grid {{ grid-template-columns: 1fr; }}
+        .tabs {{ overflow-x: auto; }}
+    }}
+    @media (max-width: 640px) {{
+        .main {{ padding: 12px; }}
+        .signal-summary {{ grid-template-columns: repeat(2, 1fr); }}
+        .stat-row {{ grid-template-columns: repeat(2, 1fr); }}
+        .header-inner {{ flex-direction: column; text-align: center; }}
+        .header-search {{ max-width: 100%; }}
+    }}
+    </style>
 </head>
 <body>
+
+<!-- MARKET TICKER -->
+<div class="ticker-bar">
+    <div class="ticker-track" id="tickerTrack"></div>
+</div>
 
 <!-- HEADER -->
 <div class="header">
     <div class="header-inner">
         <div class="logo">
-            <div class="logo-icon">S</div>
+            <div class="logo-icon">VS</div>
             <div>
                 <div class="logo-text">VN Stock Sniper</div>
-                <div class="logo-sub">Dashboard Phan tich Co phieu Viet Nam</div>
+                <div class="logo-sub">Phan tich ky thuat & AI</div>
             </div>
         </div>
         <div class="header-search">
-            <input type="text" id="globalSearch" placeholder="Tim kiem ma co phieu... (vd: FPT, VNM, HPG)" autocomplete="off">
+            <input type="text" id="globalSearch" placeholder="Tim kiem ma co phieu..." autocomplete="off">
         </div>
-        <div class="header-time">
-            Cap nhat: {self.today}<br>
-            {stats['total']} ma co phieu
+        <div class="header-right">
+            <div class="header-time">{self.today}</div>
+            <div class="header-badge">{stats['total']} co phieu</div>
         </div>
     </div>
 </div>
 
 <div class="main">
 
-<!-- STATS ROW -->
-<div class="stats-grid">
-    <div class="stat-card">
-        <div class="stat-icon">&#x1F7E2;</div>
-        <div class="stat-value c-green">{stats['uptrend']}</div>
-        <div class="stat-label">Kenh Xanh (Uptrend)</div>
-        <div class="stat-badge" style="background:var(--green-dim);color:var(--green)">{stats['uptrend_pct']}%</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon">&#x26AA;</div>
-        <div class="stat-value" style="color:var(--text-secondary)">{stats['sideways']}</div>
-        <div class="stat-label">Kenh Xam (Sideways)</div>
-        <div class="stat-badge" style="background:rgba(136,146,168,0.15);color:var(--text-secondary)">{stats['sideways_pct']}%</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon">&#x1F534;</div>
-        <div class="stat-value c-red">{stats['downtrend']}</div>
-        <div class="stat-label">Kenh Do (Downtrend)</div>
-        <div class="stat-badge" style="background:var(--red-dim);color:var(--red)">{stats['downtrend_pct']}%</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon">&#x1F4E2;</div>
-        <div class="stat-value c-yellow">{stats['signals']}</div>
-        <div class="stat-label">Tin hieu MUA</div>
-        <div class="stat-badge" style="background:var(--yellow-dim);color:var(--yellow)">BUY</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon">&#x2B50;</div>
-        <div class="stat-value c-yellow">{stats['star_5']}</div>
-        <div class="stat-label">5 Sao</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon">&#x1F4CA;</div>
-        <div class="stat-value c-blue">{stats['star_4']}</div>
-        <div class="stat-label">4 Sao</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon">&#x1F4C8;</div>
-        <div class="stat-value c-cyan">{stats['vol_surge_count']}</div>
-        <div class="stat-label">Vol Surge</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon">&#x1F50D;</div>
-        <div class="stat-value c-purple">{stats['bb_squeeze_count']}</div>
-        <div class="stat-label">BB Squeeze</div>
-    </div>
-</div>
-
-<!-- CHARTS ROW -->
-<div class="charts-row">
-    <div class="section" style="margin-bottom:0">
-        <div class="section-header"><div class="section-title">Phan bo Kenh</div></div>
-        <div class="section-body" style="display:flex;align-items:center;justify-content:center;">
-            <div style="width:220px;height:220px;"><canvas id="channelChart"></canvas></div>
-        </div>
-    </div>
-    <div class="section" style="margin-bottom:0">
-        <div class="section-header"><div class="section-title">Phan bo Tin hieu</div></div>
-        <div class="section-body" style="display:flex;align-items:center;justify-content:center;">
-            <div style="width:220px;height:220px;"><canvas id="signalChart"></canvas></div>
-        </div>
-    </div>
-    <div class="section" style="margin-bottom:0">
-        <div class="section-header"><div class="section-title">Thi truong</div></div>
-        <div class="section-body">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                <div class="ind-item">
-                    <div class="ind-label">RSI Trung binh</div>
-                    <div class="ind-value" style="color:{'var(--red)' if stats['avg_rsi'] > 70 else 'var(--green)' if stats['avg_rsi'] < 30 else 'var(--text-primary)'}">{stats['avg_rsi']}</div>
-                </div>
-                <div class="ind-item">
-                    <div class="ind-label">MFI Trung binh</div>
-                    <div class="ind-value">{stats['avg_mfi']}</div>
-                </div>
-                <div class="ind-item">
-                    <div class="ind-label">MACD Bullish</div>
-                    <div class="ind-value c-green">{stats['macd_bullish_count']}</div>
-                </div>
-                <div class="ind-item">
-                    <div class="ind-label">Phan bo Sao</div>
-                    <div class="ind-value" style="font-size:0.85rem">{stats['star_5']}x5 / {stats['star_4']}x4 / {stats['star_3']}x3</div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- MAIN TABS -->
+<!-- TABS -->
 <div class="tabs" id="mainTabs">
-    <button class="tab active" data-tab="signals">Tin hieu MUA ({stats['signals']})</button>
-    <button class="tab" data-tab="heatmap">Heatmap</button>
-    <button class="tab" data-tab="ranking">Bang xep hang</button>
-    <button class="tab" data-tab="watchlist">Watchlist</button>
-    <button class="tab" data-tab="portfolio">Portfolio</button>
-    <button class="tab" data-tab="ai-report">AI Report</button>
+    <button class="tab active" data-tab="overview">Tong quan</button>
+    <button class="tab" data-tab="screener">Bo Loc Tin Hieu</button>
+    <button class="tab" data-tab="ai-report">Khuyen Nghi AI</button>
 </div>
 
-<!-- TAB: SIGNALS -->
-<div class="tab-panel active" id="panel-signals">
-    <div class="section">
-        <div class="section-header">
-            <div class="section-title">Tin hieu MUA hom nay</div>
-            <div class="filters" id="signalFilters">
-                <button class="filter-pill active" data-signal="all">Tat ca<span class="count">{stats['signals']}</span></button>
-                <button class="filter-pill" data-signal="BREAKOUT">Breakout<span class="count">{stats['breakout']}</span></button>
-                <button class="filter-pill" data-signal="MOMENTUM">Momentum<span class="count">{stats['momentum']}</span></button>
-                <button class="filter-pill" data-signal="PULLBACK">Pullback<span class="count">{stats['pullback']}</span></button>
-                <button class="filter-pill" data-signal="REVERSAL">Reversal<span class="count">{stats['reversal']}</span></button>
-            </div>
+<!-- ==================== TAB 1: TONG QUAN ==================== -->
+<div class="tab-panel active" id="panel-overview">
+
+    <!-- Signal Summary Cards -->
+    <div class="signal-summary">
+        <div class="signal-summary-card ssc-buy-strong" onclick="filterBySignal('MUA MANH')">
+            <div class="ssc-count c-green">{stats['buy_strong']}</div>
+            <div class="ssc-label">MUA MANH</div>
         </div>
-        <div class="section-body">
-            <div class="signal-cards" id="signalCards"></div>
+        <div class="signal-summary-card ssc-buy" onclick="filterBySignal('MUA')">
+            <div class="ssc-count c-green" style="opacity:0.8">{stats['buy']}</div>
+            <div class="ssc-label">MUA</div>
+        </div>
+        <div class="signal-summary-card ssc-neutral" onclick="filterBySignal('TRUNG LAP')">
+            <div class="ssc-count" style="color:var(--text-secondary)">{stats['neutral']}</div>
+            <div class="ssc-label">TRUNG LAP</div>
+        </div>
+        <div class="signal-summary-card ssc-sell" onclick="filterBySignal('BAN')">
+            <div class="ssc-count" style="color:var(--accent-orange)">{stats['sell']}</div>
+            <div class="ssc-label">BAN</div>
+        </div>
+        <div class="signal-summary-card ssc-sell-strong" onclick="filterBySignal('BAN MANH')">
+            <div class="ssc-count c-red">{stats['sell_strong']}</div>
+            <div class="ssc-label">BAN MANH</div>
         </div>
     </div>
-</div>
 
-<!-- TAB: HEATMAP -->
-<div class="tab-panel" id="panel-heatmap">
+    <!-- Stat Cards -->
+    <div class="stat-row">
+        <div class="stat-card">
+            <div class="stat-card-label">Kenh Xanh (Uptrend)</div>
+            <div class="stat-card-value c-green">{stats['uptrend']}</div>
+            <div class="stat-card-sub">{round(stats['uptrend']/max(stats['total'],1)*100,1)}% thi truong</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card-label">Kenh Xam (Sideways)</div>
+            <div class="stat-card-value" style="color:var(--text-secondary)">{stats['sideways']}</div>
+            <div class="stat-card-sub">{round(stats['sideways']/max(stats['total'],1)*100,1)}% thi truong</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card-label">Kenh Do (Downtrend)</div>
+            <div class="stat-card-value c-red">{stats['downtrend']}</div>
+            <div class="stat-card-sub">{round(stats['downtrend']/max(stats['total'],1)*100,1)}% thi truong</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card-label">Diem Trung binh</div>
+            <div class="stat-card-value c-blue">{stats['avg_score']}</div>
+            <div class="stat-card-sub">/ 40 diem</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card-label">RSI Trung binh</div>
+            <div class="stat-card-value" style="color:{'var(--accent-red)' if stats['avg_rsi'] > 70 else 'var(--accent-green)' if stats['avg_rsi'] < 30 else 'var(--text-primary)'}">{stats['avg_rsi']}</div>
+            <div class="stat-card-sub">{'Qua mua' if stats['avg_rsi'] > 70 else 'Qua ban' if stats['avg_rsi'] < 30 else 'Trung tinh'}</div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="charts-grid">
+        <div class="section" style="margin-bottom:0">
+            <div class="section-header"><div class="section-title">Phan bo Kenh</div></div>
+            <div class="section-body" style="display:flex;justify-content:center;">
+                <div style="width:240px;height:240px;"><canvas id="channelChart"></canvas></div>
+            </div>
+        </div>
+        <div class="section" style="margin-bottom:0">
+            <div class="section-header"><div class="section-title">Phan bo Tin hieu</div></div>
+            <div class="section-body" style="display:flex;justify-content:center;">
+                <div style="width:240px;height:240px;"><canvas id="signalDistChart"></canvas></div>
+            </div>
+        </div>
+        <div class="section" style="margin-bottom:0">
+            <div class="section-header"><div class="section-title">Khuyen nghi</div></div>
+            <div class="section-body" style="display:flex;justify-content:center;">
+                <div style="width:240px;height:240px;"><canvas id="recoChart"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Heatmap -->
     <div class="section">
         <div class="section-header">
-            <div class="section-title">Heatmap theo Diem (Quality + Momentum)</div>
+            <div class="section-title">Heatmap theo Diem</div>
             <div class="filters" id="heatmapFilters">
-                <button class="filter-pill active" data-hm="score">Theo Diem</button>
-                <button class="filter-pill" data-hm="rsi">Theo RSI</button>
-                <button class="filter-pill" data-hm="volume">Theo Volume</button>
+                <button class="filter-pill active" data-hm="score">Diem</button>
+                <button class="filter-pill" data-hm="rsi">RSI</button>
+                <button class="filter-pill" data-hm="volume">Volume</button>
             </div>
         </div>
         <div class="section-body">
             <div class="heatmap" id="heatmapGrid"></div>
         </div>
     </div>
-</div>
 
-<!-- TAB: RANKING -->
-<div class="tab-panel" id="panel-ranking">
+    <!-- Portfolio -->
     <div class="section">
         <div class="section-header">
-            <div class="section-title">Bang xep hang Co phieu</div>
-            <div class="filters" id="channelFilters">
-                <button class="filter-pill active" data-channel="all">Tat ca<span class="count">{stats['total']}</span></button>
-                <button class="filter-pill" data-channel="XANH">Xanh<span class="count">{stats['uptrend']}</span></button>
-                <button class="filter-pill" data-channel="XÁM">Xam<span class="count">{stats['sideways']}</span></button>
-                <button class="filter-pill" data-channel="ĐỎ">Do<span class="count">{stats['downtrend']}</span></button>
-            </div>
-        </div>
-        <div class="section-body" style="padding:0;overflow-x:auto;">
-            <table class="stock-table" id="stockTable">
-                <thead>
-                    <tr>
-                        <th data-sort="index">#</th>
-                        <th></th>
-                        <th data-sort="symbol">Ma</th>
-                        <th data-sort="close">Gia</th>
-                        <th data-sort="total_score">Diem</th>
-                        <th data-sort="stars">Sao</th>
-                        <th data-sort="buy_signal">Tin hieu</th>
-                        <th data-sort="channel">Kenh</th>
-                        <th data-sort="rsi">RSI</th>
-                        <th data-sort="mfi">MFI</th>
-                        <th data-sort="vol_ratio">Vol</th>
-                        <th data-sort="macd_bullish">MACD</th>
-                        <th data-sort="bb_percent">BB%</th>
-                    </tr>
-                </thead>
-                <tbody id="stockTableBody"></tbody>
-            </table>
-            <div class="pagination" style="padding:12px 20px;">
-                <div class="pagination-info" id="pageInfo"></div>
-                <div class="pagination-btns" id="pageBtns"></div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- TAB: WATCHLIST -->
-<div class="tab-panel" id="panel-watchlist">
-    <div class="section">
-        <div class="section-header">
-            <div class="section-title">Watchlist cua ban</div>
-            <button class="filter-pill" onclick="clearWatchlist()" style="color:var(--red);border-color:var(--red);">Xoa tat ca</button>
+            <div class="section-title">Portfolio</div>
         </div>
         <div class="section-body">
-            <div id="watchlistContent"></div>
-        </div>
-    </div>
-</div>
-
-<!-- TAB: PORTFOLIO -->
-<div class="tab-panel" id="panel-portfolio">
-    <div class="section">
-        <div class="section-header">
-            <div class="section-title">Portfolio cua ban</div>
-        </div>
-        <div class="section-body">
-            <div class="portfolio-summary">
-                <div class="stat-card">
-                    <div class="stat-value c-blue">{self.portfolio.get('cash_percent', 100)}%</div>
-                    <div class="stat-label">Tien mat</div>
+            <div class="portfolio-grid">
+                <div class="pf-card">
+                    <div class="pf-value c-blue">{self.portfolio.get('cash_percent', 100)}%</div>
+                    <div class="pf-label">Tien mat</div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-value {'c-green' if total_pnl >= 0 else 'c-red'}">{'+'if total_pnl >= 0 else ''}{total_pnl:.2f}%</div>
-                    <div class="stat-label">Tong P&L</div>
+                <div class="pf-card">
+                    <div class="pf-value {'c-green' if total_pnl >= 0 else 'c-red'}">{'+'if total_pnl >= 0 else ''}{total_pnl:.2f}%</div>
+                    <div class="pf-label">Tong P&L</div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-value">{len(positions)}</div>
-                    <div class="stat-label">Vi the</div>
+                <div class="pf-card">
+                    <div class="pf-value">{len(positions)}</div>
+                    <div class="pf-label">Vi the</div>
                 </div>
             </div>
             {self._generate_portfolio_html(positions)}
         </div>
     </div>
+
 </div>
 
-<!-- TAB: AI REPORT -->
+<!-- ==================== TAB 2: BO LOC TIN HIEU ==================== -->
+<div class="tab-panel" id="panel-screener">
+
+    <!-- Signal Filter Pills -->
+    <div style="margin-bottom:20px;">
+        <div class="filters" id="screenerFilters">
+            <button class="filter-pill active" data-sf="all">Tat ca<span class="cnt">{stats['total']}</span></button>
+            <button class="filter-pill" data-sf="MUA MANH">MUA MANH<span class="cnt">{stats['buy_strong']}</span></button>
+            <button class="filter-pill" data-sf="MUA">MUA<span class="cnt">{stats['buy']}</span></button>
+            <button class="filter-pill" data-sf="TRUNG LAP">TRUNG LAP<span class="cnt">{stats['neutral']}</span></button>
+            <button class="filter-pill" data-sf="BAN">BAN<span class="cnt">{stats['sell']}</span></button>
+            <button class="filter-pill" data-sf="BAN MANH">BAN MANH<span class="cnt">{stats['sell_strong']}</span></button>
+        </div>
+    </div>
+
+    <!-- Screener Table -->
+    <div class="section">
+        <div style="overflow-x:auto;">
+            <table class="screener-table" id="screenerTable">
+                <thead>
+                    <tr>
+                        <th data-sort="index" style="width:40px">#</th>
+                        <th data-sort="symbol">Ma</th>
+                        <th data-sort="signal_label">Khuyen nghi</th>
+                        <th data-sort="close">Gia</th>
+                        <th data-sort="score_100">Diem</th>
+                        <th data-sort="rsi">RSI</th>
+                        <th data-sort="channel">Kenh</th>
+                        <th data-sort="vol_ratio">Vol</th>
+                        <th data-sort="buy_signal">Tin hieu</th>
+                        <th style="width:60px">Chi tiet</th>
+                    </tr>
+                </thead>
+                <tbody id="screenerBody"></tbody>
+            </table>
+        </div>
+        <div class="pagination">
+            <div class="pagination-info" id="pageInfo"></div>
+            <div class="pagination-btns" id="pageBtns"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== TAB 3: KHUYEN NGHI AI ==================== -->
 <div class="tab-panel" id="panel-ai-report">
     <div class="section">
         <div class="section-header">
             <div class="section-title">Bao cao Phan tich AI</div>
+            <div class="header-time">Claude Sonnet 4.5</div>
         </div>
         <div class="section-body">
-            <div class="ai-report-content" id="aiReportContent"></div>
+            <div class="ai-report" id="aiReportContent"></div>
         </div>
     </div>
 </div>
 
 </div><!-- end main -->
 
-<!-- STOCK DETAIL MODAL -->
-<div class="modal-overlay" id="stockModal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <div>
-                <div style="font-size:1.2rem;font-weight:700;" id="modalTitle"></div>
-                <div style="font-size:0.8rem;color:var(--text-secondary);" id="modalSub"></div>
-            </div>
-            <button class="modal-close" onclick="closeModal()">&times;</button>
-        </div>
-        <div class="modal-body" id="modalBody"></div>
-    </div>
-</div>
-
 <script>
-// === DATA ===
+// ===========================
+// DATA
+// ===========================
 const ALL_STOCKS = {json.dumps(clean_stocks, ensure_ascii=False, default=str)};
-const SIGNALS_DATA = {json.dumps(signals_data, ensure_ascii=False, default=str)};
 const AI_REPORT = `{ai_report_escaped}`;
 
-// === STATE ===
-let currentTab = 'signals';
-let rankingFilter = 'all';
-let signalFilter = 'all';
+// ===========================
+// STATE
+// ===========================
+let currentTab = 'overview';
+let screenerFilter = 'all';
 let heatmapMode = 'score';
-let sortCol = 'total_score';
+let sortCol = 'score_100';
 let sortDir = 'desc';
 let currentPage = 1;
-const PAGE_SIZE = 25;
-let watchlist = JSON.parse(localStorage.getItem('vn_watchlist') || '[]');
+const PAGE_SIZE = 20;
+let expandedRow = null;
 
-// === UTILS ===
+// ===========================
+// UTILS
+// ===========================
 const n = v => Number(v || 0);
 const f1 = v => n(v).toFixed(1);
 const f2 = v => n(v).toFixed(2);
 const loc = v => n(v).toLocaleString('vi-VN');
-const pct = (v) => {{ const val = n(v); return (val >= 0 ? '+' : '') + val.toFixed(1) + '%'; }};
 
-function getRsiColor(rsi) {{
-    if (rsi > 70) return 'var(--red)';
-    if (rsi < 30) return 'var(--green)';
-    return 'var(--text-primary)';
+function getSignalBadge(label) {{
+    if (!label) label = 'TRUNG LAP';
+    const cls = {{
+        'MUA MANH': 'signal-mua-manh',
+        'MUA': 'signal-mua',
+        'TRUNG LAP': 'signal-trung-lap',
+        'BAN': 'signal-ban',
+        'BAN MANH': 'signal-ban-manh'
+    }}[label] || 'signal-trung-lap';
+    return '<span class="signal-badge ' + cls + '">' + label + '</span>';
+}}
+
+function getTypeBadge(sig) {{
+    if (!sig) return '<span class="c-muted">-</span>';
+    const cls = {{'BREAKOUT':'type-breakout','MOMENTUM':'type-momentum','PULLBACK':'type-pullback','REVERSAL':'type-reversal'}}[sig] || '';
+    return '<span class="type-badge ' + cls + '">' + sig + '</span>';
 }}
 
 function getChannelBadge(ch) {{
-    if (!ch) return '<span class="badge-channel badge-gray">-</span>';
-    const clean = ch.replace(/[^A-Za-zÀ-ỹ ]/g, '').trim();
-    if (ch.includes('XANH')) return '<span class="badge-channel badge-green">' + clean + '</span>';
-    if (ch.includes('ĐỎ')) return '<span class="badge-channel badge-red">' + clean + '</span>';
-    return '<span class="badge-channel badge-gray">' + clean + '</span>';
+    if (!ch) return '<span class="ch-badge ch-gray">-</span>';
+    if (ch.includes('XANH')) return '<span class="ch-badge ch-green">XANH</span>';
+    if (ch.includes('ĐỎ') || ch.includes('DO')) return '<span class="ch-badge ch-red">DO</span>';
+    return '<span class="ch-badge ch-gray">XAM</span>';
 }}
 
-function getSignalBadge(sig) {{
-    if (!sig) return '-';
-    const cls = {{'BREAKOUT':'badge-breakout','MOMENTUM':'badge-momentum','PULLBACK':'badge-pullback','REVERSAL':'badge-reversal'}}[sig] || '';
-    return '<span class="badge-signal ' + cls + '">' + sig + '</span>';
+function getRsiColor(rsi) {{
+    if (rsi > 70) return 'var(--accent-red)';
+    if (rsi < 30) return 'var(--accent-green)';
+    return 'var(--text-primary)';
 }}
 
-function getStars(n) {{
-    return '<span class="stars-display">' + '&#11088;'.repeat(Math.min(n, 5)) + '</span>';
+function getScoreColor(score) {{
+    if (score >= 70) return 'var(--accent-green)';
+    if (score >= 45) return 'var(--accent-blue)';
+    if (score >= 25) return 'var(--accent-yellow)';
+    return 'var(--accent-red)';
 }}
 
-function getRsiBar(rsi) {{
-    const w = Math.min(rsi, 100);
-    const color = rsi > 70 ? 'var(--red)' : rsi < 30 ? 'var(--green)' : 'var(--blue)';
-    return f1(rsi) + '<span class="rsi-bar"><span class="rsi-bar-fill" style="width:' + w + '%;background:' + color + '"></span></span>';
+// SVG Score Gauge
+function renderGauge(score, size) {{
+    size = size || 44;
+    const r = (size - 6) / 2;
+    const circ = 2 * Math.PI * r;
+    const pct = Math.min(Math.max(score, 0), 100);
+    const offset = circ * (1 - pct / 100);
+    const color = getScoreColor(pct);
+    return `<div class="score-gauge" style="width:${{size}}px;height:${{size}}px">
+        <svg width="${{size}}" height="${{size}}" viewBox="0 0 ${{size}} ${{size}}">
+            <circle cx="${{size/2}}" cy="${{size/2}}" r="${{r}}" fill="none" stroke="rgba(30,41,59,0.5)" stroke-width="4"/>
+            <circle cx="${{size/2}}" cy="${{size/2}}" r="${{r}}" fill="none" stroke="${{color}}" stroke-width="4"
+                stroke-dasharray="${{circ}}" stroke-dashoffset="${{offset}}" stroke-linecap="round"
+                style="transition:stroke-dashoffset 0.8s ease"/>
+        </svg>
+        <span class="gauge-val" style="color:${{color}};font-size:${{size < 40 ? 0.65 : 0.8}}rem">${{Math.round(pct)}}</span>
+    </div>`;
 }}
 
-function isInWatchlist(symbol) {{
-    return watchlist.includes(symbol);
+// RSI bar
+function renderRsiBar(rsi) {{
+    const w = Math.min(n(rsi), 100);
+    const color = rsi > 70 ? 'var(--accent-red)' : rsi < 30 ? 'var(--accent-green)' : 'var(--accent-blue)';
+    return `<span class="mono" style="color:${{getRsiColor(rsi)}}">${{f1(rsi)}}</span>
+        <span class="rsi-bar"><span class="rsi-bar-fill" style="width:${{w}}%;background:${{color}}"></span></span>`;
 }}
 
-function toggleWatchlist(symbol, e) {{
-    if (e) e.stopPropagation();
-    const idx = watchlist.indexOf(symbol);
-    if (idx >= 0) watchlist.splice(idx, 1);
-    else watchlist.push(symbol);
-    localStorage.setItem('vn_watchlist', JSON.stringify(watchlist));
-    renderCurrentTab();
-}}
-
-function clearWatchlist() {{
-    watchlist = [];
-    localStorage.setItem('vn_watchlist', JSON.stringify(watchlist));
-    renderCurrentTab();
-}}
-
-// === TABS ===
+// ===========================
+// TABS
+// ===========================
 document.querySelectorAll('.tab').forEach(tab => {{
     tab.addEventListener('click', () => {{
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -1096,35 +1140,37 @@ document.querySelectorAll('.tab').forEach(tab => {{
 }});
 
 function renderCurrentTab() {{
-    if (currentTab === 'signals') renderSignals();
-    else if (currentTab === 'heatmap') renderHeatmap();
-    else if (currentTab === 'ranking') renderRanking();
-    else if (currentTab === 'watchlist') renderWatchlist();
-    else if (currentTab === 'ai-report') renderAIReport();
+    if (currentTab === 'overview') {{ renderHeatmap(); }}
+    else if (currentTab === 'screener') {{ renderScreener(); }}
+    else if (currentTab === 'ai-report') {{ renderAIReport(); }}
 }}
 
-// === SIGNAL FILTERS ===
-document.querySelectorAll('#signalFilters .filter-pill').forEach(pill => {{
-    pill.addEventListener('click', () => {{
-        document.querySelectorAll('#signalFilters .filter-pill').forEach(p => p.classList.remove('active'));
-        pill.classList.add('active');
-        signalFilter = pill.dataset.signal;
-        renderSignals();
-    }});
-}});
+// ===========================
+// MARKET TICKER
+// ===========================
+function initTicker() {{
+    const top = [...ALL_STOCKS].sort((a, b) => n(b.total_score) - n(a.total_score)).slice(0, 20);
+    if (top.length === 0) return;
+    const track = document.getElementById('tickerTrack');
+    let html = '';
+    // Duplicate for infinite scroll
+    for (let rep = 0; rep < 3; rep++) {{
+        top.forEach(s => {{
+            const score = n(s.score_100);
+            const color = score >= 55 ? 'var(--accent-green)' : score <= 25 ? 'var(--accent-red)' : 'var(--text-secondary)';
+            html += `<div class="ticker-item">
+                <span class="ticker-symbol">${{s.symbol}}</span>
+                <span class="ticker-price">${{loc(s.close)}}</span>
+                <span style="color:${{color}};font-size:0.75rem;font-family:'JetBrains Mono',monospace">${{Math.round(score)}}pt</span>
+            </div>`;
+        }});
+    }}
+    track.innerHTML = html;
+}}
 
-// === CHANNEL FILTERS ===
-document.querySelectorAll('#channelFilters .filter-pill').forEach(pill => {{
-    pill.addEventListener('click', () => {{
-        document.querySelectorAll('#channelFilters .filter-pill').forEach(p => p.classList.remove('active'));
-        pill.classList.add('active');
-        rankingFilter = pill.dataset.channel;
-        currentPage = 1;
-        renderRanking();
-    }});
-}});
-
-// === HEATMAP FILTERS ===
+// ===========================
+// HEATMAP
+// ===========================
 document.querySelectorAll('#heatmapFilters .filter-pill').forEach(pill => {{
     pill.addEventListener('click', () => {{
         document.querySelectorAll('#heatmapFilters .filter-pill').forEach(p => p.classList.remove('active'));
@@ -1134,95 +1180,88 @@ document.querySelectorAll('#heatmapFilters .filter-pill').forEach(pill => {{
     }});
 }});
 
-// === RENDER: SIGNALS ===
-function renderSignals() {{
-    const container = document.getElementById('signalCards');
-    let data = SIGNALS_DATA;
-    if (signalFilter !== 'all') data = data.filter(s => s.signal === signalFilter);
-
-    if (data.length === 0) {{
-        container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);">Khong co tin hieu MUA' + (signalFilter !== 'all' ? ' loai ' + signalFilter : '') + '</div>';
-        return;
-    }}
-
-    container.innerHTML = data.map(s => {{
-        const slPct = s.close > 0 ? ((s.sl - s.close) / s.close * 100).toFixed(1) : 0;
-        const tp1Pct = s.close > 0 ? ((s.tp1 - s.close) / s.close * 100).toFixed(1) : 0;
-        const tp2Pct = s.close > 0 ? ((s.tp2 - s.close) / s.close * 100).toFixed(1) : 0;
-        const sigCls = {{'BREAKOUT':'badge-breakout','MOMENTUM':'badge-momentum','PULLBACK':'badge-pullback','REVERSAL':'badge-reversal'}}[s.signal] || '';
-
-        return `<div class="signal-card" onclick="showStockDetail('${{s.symbol}}')">
-            <div class="signal-card-header">
-                <div>
-                    <span class="signal-symbol">${{s.symbol}}</span>
-                    <span class="stars-display" style="margin-left:8px">${{'&#11088;'.repeat(s.stars)}}</span>
-                </div>
-                <span class="badge-signal ${{sigCls}}">${{s.signal}}</span>
-            </div>
-            <div class="signal-metrics">
-                <div><div class="signal-metric-label">Gia</div><div class="signal-metric-value">${{loc(s.close)}}</div></div>
-                <div><div class="signal-metric-label">Q/M</div><div class="signal-metric-value">${{n(s.q).toFixed(0)}}/${{n(s.m).toFixed(0)}}</div></div>
-                <div><div class="signal-metric-label">RSI</div><div class="signal-metric-value" style="color:${{getRsiColor(s.rsi)}}">${{f1(s.rsi)}}</div></div>
-            </div>
-            <div class="signal-levels">
-                <div class="signal-level"><span>Entry</span><span style="font-weight:600">${{loc(s.close)}}</span></div>
-                <div class="signal-level"><span>Stop Loss</span><span class="c-red">${{loc(s.sl)}} (${{slPct}}%)</span></div>
-                <div class="signal-level"><span>Target 1</span><span class="c-green">${{loc(s.tp1)}} (+${{tp1Pct}}%)</span></div>
-                <div class="signal-level"><span>Target 2</span><span class="c-green">${{loc(s.tp2)}} (+${{tp2Pct}}%)</span></div>
-            </div>
-        </div>`;
-    }}).join('');
-}}
-
-// === RENDER: HEATMAP ===
 function renderHeatmap() {{
     const container = document.getElementById('heatmapGrid');
     const stocks = [...ALL_STOCKS].sort((a, b) => n(b.total_score) - n(a.total_score));
+    if (stocks.length === 0) {{
+        container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">Chua co du lieu</div>';
+        return;
+    }}
 
     container.innerHTML = stocks.map(s => {{
         let val, maxVal, label;
         if (heatmapMode === 'rsi') {{
-            val = n(s.rsi);
-            maxVal = 100;
-            label = f1(val);
+            val = n(s.rsi); maxVal = 100; label = f1(val);
         }} else if (heatmapMode === 'volume') {{
-            val = Math.min(n(s.vol_ratio), 3);
-            maxVal = 3;
-            label = f1(s.vol_ratio) + 'x';
+            val = Math.min(n(s.vol_ratio), 3); maxVal = 3; label = f1(s.vol_ratio) + 'x';
         }} else {{
-            val = n(s.total_score);
-            maxVal = 40;
-            label = n(val).toFixed(0);
+            val = n(s.score_100); maxVal = 100; label = Math.round(val) + 'pt';
         }}
 
         let bgColor;
         if (heatmapMode === 'rsi') {{
-            if (val > 70) bgColor = 'rgba(239,68,68,0.5)';
-            else if (val > 60) bgColor = 'rgba(239,68,68,0.25)';
-            else if (val < 30) bgColor = 'rgba(34,197,94,0.5)';
-            else if (val < 40) bgColor = 'rgba(34,197,94,0.25)';
-            else bgColor = 'rgba(59,130,246,0.2)';
+            bgColor = val > 70 ? 'rgba(239,68,68,0.45)' : val > 60 ? 'rgba(239,68,68,0.2)' : val < 30 ? 'rgba(16,185,129,0.45)' : val < 40 ? 'rgba(16,185,129,0.2)' : 'rgba(59,130,246,0.15)';
         }} else {{
             const ratio = Math.min(val / maxVal, 1);
-            if (ratio > 0.7) bgColor = 'rgba(34,197,94,' + (0.2 + ratio * 0.4) + ')';
-            else if (ratio > 0.4) bgColor = 'rgba(59,130,246,' + (0.15 + ratio * 0.3) + ')';
-            else bgColor = 'rgba(136,146,168,' + (0.1 + ratio * 0.15) + ')';
+            bgColor = ratio > 0.6 ? 'rgba(16,185,129,' + (0.15 + ratio * 0.35) + ')' : ratio > 0.3 ? 'rgba(59,130,246,' + (0.1 + ratio * 0.25) + ')' : 'rgba(148,163,184,' + (0.05 + ratio * 0.12) + ')';
         }}
 
-        return `<div class="heatmap-cell" style="background:${{bgColor}}" onclick="showStockDetail('${{s.symbol}}')">
-            <div class="heatmap-symbol">${{s.symbol}}</div>
-            <div class="heatmap-score">${{label}}</div>
+        return `<div class="heatmap-cell" style="background:${{bgColor}}" onclick="goToScreener('${{s.symbol}}')">
+            <div class="hm-sym">${{s.symbol}}</div>
+            <div class="hm-val">${{label}}</div>
         </div>`;
     }}).join('');
 }}
 
-// === RENDER: RANKING ===
-function renderRanking() {{
+function goToScreener(symbol) {{
+    // Switch to screener tab and search for symbol
+    document.getElementById('globalSearch').value = symbol;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    currentTab = 'screener';
+    document.querySelector('[data-tab="screener"]').classList.add('active');
+    document.getElementById('panel-screener').classList.add('active');
+    currentPage = 1;
+    renderScreener();
+}}
+
+function filterBySignal(label) {{
+    // Switch to screener tab with filter
+    screenerFilter = label;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    currentTab = 'screener';
+    document.querySelector('[data-tab="screener"]').classList.add('active');
+    document.getElementById('panel-screener').classList.add('active');
+    // Update filter pills
+    document.querySelectorAll('#screenerFilters .filter-pill').forEach(p => {{
+        p.classList.remove('active');
+        if (p.dataset.sf === label) p.classList.add('active');
+    }});
+    currentPage = 1;
+    renderScreener();
+}}
+
+// ===========================
+// SCREENER TABLE
+// ===========================
+document.querySelectorAll('#screenerFilters .filter-pill').forEach(pill => {{
+    pill.addEventListener('click', () => {{
+        document.querySelectorAll('#screenerFilters .filter-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        screenerFilter = pill.dataset.sf;
+        currentPage = 1;
+        expandedRow = null;
+        renderScreener();
+    }});
+}});
+
+function renderScreener() {{
     let stocks = [...ALL_STOCKS];
 
-    // Filter by channel
-    if (rankingFilter !== 'all') {{
-        stocks = stocks.filter(s => (s.channel || '').includes(rankingFilter));
+    // Filter by signal
+    if (screenerFilter !== 'all') {{
+        stocks = stocks.filter(s => s.signal_label === screenerFilter);
     }}
 
     // Filter by search
@@ -1236,284 +1275,310 @@ function renderRanking() {{
         let va = a[sortCol], vb = b[sortCol];
         if (typeof va === 'string') va = va || '';
         if (typeof vb === 'string') vb = vb || '';
-        if (typeof va === 'number' || typeof vb === 'number') {{
-            va = n(va); vb = n(vb);
-        }}
+        if (typeof va === 'number' || typeof vb === 'number') {{ va = n(va); vb = n(vb); }}
         if (sortDir === 'asc') return va > vb ? 1 : va < vb ? -1 : 0;
         return va < vb ? 1 : va > vb ? -1 : 0;
     }});
 
     // Pagination
     const total = stocks.length;
-    const totalPages = Math.ceil(total / PAGE_SIZE);
-    if (currentPage > totalPages) currentPage = totalPages || 1;
+    const totalPages = Math.ceil(total / PAGE_SIZE) || 1;
+    if (currentPage > totalPages) currentPage = totalPages;
     const start = (currentPage - 1) * PAGE_SIZE;
     const pageStocks = stocks.slice(start, start + PAGE_SIZE);
 
-    const tbody = document.getElementById('stockTableBody');
-    tbody.innerHTML = pageStocks.map((s, i) => {{
+    const tbody = document.getElementById('screenerBody');
+    let html = '';
+
+    pageStocks.forEach((s, i) => {{
         const idx = start + i + 1;
-        const wlActive = isInWatchlist(s.symbol) ? 'active' : '';
-        return `<tr onclick="showStockDetail('${{s.symbol}}')">
-            <td style="color:var(--text-muted)">${{idx}}</td>
-            <td><span class="watchlist-star ${{wlActive}}" onclick="toggleWatchlist('${{s.symbol}}', event)">&#9733;</span></td>
-            <td><strong>${{s.symbol}}</strong></td>
-            <td>${{loc(s.close)}}</td>
-            <td><strong>${{n(s.total_score).toFixed(0)}}</strong> <span style="font-size:0.7rem;color:var(--text-muted)">${{n(s.quality_score).toFixed(0)}}/${{n(s.momentum_score).toFixed(0)}}</span></td>
-            <td>${{getStars(n(s.stars))}}</td>
-            <td>${{getSignalBadge(s.buy_signal)}}</td>
+        const isExpanded = expandedRow === s.symbol;
+
+        html += `<tr onclick="toggleExpand('${{s.symbol}}')" class="${{isExpanded ? 'expanded-parent' : ''}}">
+            <td class="c-muted mono">${{idx}}</td>
+            <td class="stock-name">${{s.symbol}}</td>
+            <td>${{getSignalBadge(s.signal_label)}}</td>
+            <td class="mono">${{loc(s.close)}}</td>
+            <td>${{renderGauge(n(s.score_100), 40)}}</td>
+            <td>${{renderRsiBar(n(s.rsi))}}</td>
             <td>${{getChannelBadge(s.channel)}}</td>
-            <td style="color:${{getRsiColor(n(s.rsi))}}">${{getRsiBar(n(s.rsi))}}</td>
-            <td>${{f1(s.mfi)}}</td>
-            <td style="color:${{n(s.vol_ratio) > 1.5 ? 'var(--green)' : 'var(--text-primary)'}}">${{f1(s.vol_ratio)}}x</td>
-            <td style="color:${{s.macd_bullish ? 'var(--green)' : 'var(--red)'}}">${{s.macd_bullish ? 'Bull' : 'Bear'}}</td>
-            <td>${{f1(s.bb_percent)}}%</td>
+            <td class="mono" style="color:${{n(s.vol_ratio) > 1.5 ? 'var(--accent-green)' : 'var(--text-primary)'}}">${{f1(s.vol_ratio)}}x</td>
+            <td>${{getTypeBadge(s.buy_signal)}}</td>
+            <td style="text-align:center;color:var(--text-muted);font-size:0.9rem">${{isExpanded ? '&#9650;' : '&#9660;'}}</td>
         </tr>`;
-    }}).join('');
+
+        // Expandable detail row
+        html += `<tr class="expand-row ${{isExpanded ? 'show' : ''}}" id="expand-${{s.symbol}}">
+            <td colspan="10" style="padding:0">
+                <div class="expand-content">
+                    <div class="expand-grid">
+                        <div>
+                            <div class="expand-section-title">Chi bao Ky thuat</div>
+                            <div class="ind-list">
+                                <div class="ind-row"><span class="ind-row-label">RSI (14)</span><span class="ind-row-value" style="color:${{getRsiColor(n(s.rsi))}}">${{f1(s.rsi)}}</span></div>
+                                <div class="ind-row"><span class="ind-row-label">MFI</span><span class="ind-row-value" style="color:${{n(s.mfi) > 50 ? 'var(--accent-green)' : 'var(--accent-red)'}}">${{f1(s.mfi)}}</span></div>
+                                <div class="ind-row"><span class="ind-row-label">MACD</span><span class="ind-row-value" style="color:${{s.macd_bullish ? 'var(--accent-green)' : 'var(--accent-red)'}}">${{s.macd_bullish ? 'Bullish' : 'Bearish'}}</span></div>
+                                <div class="ind-row"><span class="ind-row-label">Stoch K/D</span><span class="ind-row-value">${{f1(s.stoch_k)}} / ${{f1(s.stoch_d)}}</span></div>
+                                <div class="ind-row"><span class="ind-row-label">BB %</span><span class="ind-row-value">${{f1(s.bb_percent)}}%</span></div>
+                                <div class="ind-row"><span class="ind-row-label">ATR %</span><span class="ind-row-value">${{f2(s.atr_percent)}}%</span></div>
+                                <div class="ind-row"><span class="ind-row-label">Vol Ratio</span><span class="ind-row-value" style="color:${{n(s.vol_ratio) > 1.5 ? 'var(--accent-green)' : 'var(--text-primary)'}}">${{f2(s.vol_ratio)}}x</span></div>
+                                <div class="ind-row"><span class="ind-row-label">OBV</span><span class="ind-row-value" style="color:${{s.obv_rising ? 'var(--accent-green)' : 'var(--accent-red)'}}">${{s.obv_rising ? 'Tang' : 'Giam'}}</span></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="expand-section-title">Xu huong & Kenh gia</div>
+                            <div class="ind-list">
+                                <div class="ind-row"><span class="ind-row-label">LR Slope</span><span class="ind-row-value">${{f2(s.lr_slope_pct)}}%</span></div>
+                                <div class="ind-row"><span class="ind-row-label">Channel Pos</span><span class="ind-row-value">${{f1(s.channel_position)}}%</span></div>
+                                <div class="ind-row"><span class="ind-row-label">MA Aligned</span><span class="ind-row-value" style="color:${{s.ma_aligned ? 'var(--accent-green)' : 'var(--accent-red)'}}">${{s.ma_aligned ? 'Co' : 'Khong'}}</span></div>
+                                <div class="ind-row"><span class="ind-row-label">Above MA200</span><span class="ind-row-value" style="color:${{s.above_ma200 ? 'var(--accent-green)' : 'var(--accent-red)'}}">${{s.above_ma200 ? 'Co' : 'Khong'}}</span></div>
+                                <div class="ind-row"><span class="ind-row-label">Above MA50</span><span class="ind-row-value" style="color:${{s.above_ma50 ? 'var(--accent-green)' : 'var(--accent-red)'}}">${{s.above_ma50 ? 'Co' : 'Khong'}}</span></div>
+                                <div class="ind-row"><span class="ind-row-label">BB Squeeze</span><span class="ind-row-value" style="color:${{s.bb_squeeze ? 'var(--accent-yellow)' : 'var(--text-muted)'}}">${{s.bb_squeeze ? 'Co' : 'Khong'}}</span></div>
+                                <div class="ind-row"><span class="ind-row-label">Breakout 20D</span><span class="ind-row-value" style="color:${{s.breakout_20 ? 'var(--accent-green)' : 'var(--text-muted)'}}">${{s.breakout_20 ? 'Co' : 'Khong'}}</span></div>
+                                <div class="ind-row"><span class="ind-row-label">Breakout 50D</span><span class="ind-row-value" style="color:${{s.breakout_50 ? 'var(--accent-green)' : 'var(--text-muted)'}}">${{s.breakout_50 ? 'Co' : 'Khong'}}</span></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="expand-section-title">Diem so & Ho tro / Khang cu</div>
+                            <div class="ind-list">
+                                <div class="ind-row"><span class="ind-row-label">Quality Score</span><span class="ind-row-value c-blue">${{f1(s.quality_score)}} / 25</span></div>
+                                <div class="ind-row"><span class="ind-row-label">Momentum Score</span><span class="ind-row-value c-purple">${{f1(s.momentum_score)}} / 15</span></div>
+                                <div class="ind-row"><span class="ind-row-label">Tong diem</span><span class="ind-row-value c-green">${{f1(s.total_score)}} / 40</span></div>
+                                <div class="ind-row"><span class="ind-row-label">Support</span><span class="ind-row-value c-green">${{loc(s.support)}}</span></div>
+                                <div class="ind-row"><span class="ind-row-label">Resistance</span><span class="ind-row-value c-red">${{loc(s.resistance)}}</span></div>
+                                <div class="ind-row"><span class="ind-row-label">BB Lower</span><span class="ind-row-value c-green">${{loc(s.bb_lower)}}</span></div>
+                                <div class="ind-row"><span class="ind-row-label">BB Upper</span><span class="ind-row-value c-red">${{loc(s.bb_upper)}}</span></div>
+                                <div class="ind-row"><span class="ind-row-label">BB Width</span><span class="ind-row-value">${{f2(s.bb_width)}}%</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="margin-top:16px;text-align:center">
+                        <canvas id="radar-${{s.symbol}}" width="260" height="200"></canvas>
+                    </div>
+                </div>
+            </td>
+        </tr>`;
+    }});
+
+    tbody.innerHTML = html;
+
+    // Draw radar chart for expanded row
+    if (expandedRow) {{
+        const s = ALL_STOCKS.find(x => x.symbol === expandedRow);
+        if (s) drawRadar(s);
+    }}
 
     // Update sort headers
-    document.querySelectorAll('.stock-table thead th').forEach(th => {{
+    document.querySelectorAll('.screener-table thead th').forEach(th => {{
         th.classList.remove('sorted-asc', 'sorted-desc');
         if (th.dataset.sort === sortCol) th.classList.add('sorted-' + sortDir);
     }});
 
-    // Pagination info
-    document.getElementById('pageInfo').textContent = `Hien thi ${{start + 1}}-${{Math.min(start + PAGE_SIZE, total)}} / ${{total}} ma`;
+    // Pagination
+    document.getElementById('pageInfo').textContent = total > 0 ? (start + 1) + '-' + Math.min(start + PAGE_SIZE, total) + ' / ' + total + ' ma' : '0 ma';
 
-    // Pagination buttons
     const pageBtns = document.getElementById('pageBtns');
-    let btnsHtml = '';
-    btnsHtml += `<button class="pagination-btn" onclick="goPage(1)" ${{currentPage === 1 ? 'disabled' : ''}}>&laquo;</button>`;
-    btnsHtml += `<button class="pagination-btn" onclick="goPage(${{currentPage - 1}})" ${{currentPage === 1 ? 'disabled' : ''}}>&lsaquo;</button>`;
-
-    let startP = Math.max(1, currentPage - 2);
-    let endP = Math.min(totalPages, currentPage + 2);
-    for (let p = startP; p <= endP; p++) {{
-        btnsHtml += `<button class="pagination-btn ${{p === currentPage ? 'active' : ''}}" onclick="goPage(${{p}})">${{p}}</button>`;
+    let btns = '';
+    btns += `<button class="pg-btn" onclick="goPage(1)" ${{currentPage === 1 ? 'disabled' : ''}}>&laquo;</button>`;
+    btns += `<button class="pg-btn" onclick="goPage(${{currentPage-1}})" ${{currentPage === 1 ? 'disabled' : ''}}>&lsaquo;</button>`;
+    let sp = Math.max(1, currentPage - 2);
+    let ep = Math.min(totalPages, currentPage + 2);
+    for (let p = sp; p <= ep; p++) {{
+        btns += `<button class="pg-btn ${{p === currentPage ? 'active' : ''}}" onclick="goPage(${{p}})">${{p}}</button>`;
     }}
+    btns += `<button class="pg-btn" onclick="goPage(${{currentPage+1}})" ${{currentPage === totalPages ? 'disabled' : ''}}>&rsaquo;</button>`;
+    btns += `<button class="pg-btn" onclick="goPage(${{totalPages}})" ${{currentPage === totalPages ? 'disabled' : ''}}>&raquo;</button>`;
+    pageBtns.innerHTML = btns;
+}}
 
-    btnsHtml += `<button class="pagination-btn" onclick="goPage(${{currentPage + 1}})" ${{currentPage === totalPages ? 'disabled' : ''}}>&rsaquo;</button>`;
-    btnsHtml += `<button class="pagination-btn" onclick="goPage(${{totalPages}})" ${{currentPage === totalPages ? 'disabled' : ''}}>&raquo;</button>`;
-    pageBtns.innerHTML = btnsHtml;
+function toggleExpand(symbol) {{
+    expandedRow = expandedRow === symbol ? null : symbol;
+    renderScreener();
 }}
 
 function goPage(p) {{
     currentPage = Math.max(1, p);
-    renderRanking();
+    expandedRow = null;
+    renderScreener();
 }}
 
 // Table sorting
-document.querySelectorAll('.stock-table thead th[data-sort]').forEach(th => {{
-    th.addEventListener('click', () => {{
+document.querySelectorAll('.screener-table thead th[data-sort]').forEach(th => {{
+    th.addEventListener('click', (e) => {{
+        e.stopPropagation();
         const col = th.dataset.sort;
         if (sortCol === col) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
         else {{ sortCol = col; sortDir = 'desc'; }}
         currentPage = 1;
-        renderRanking();
+        expandedRow = null;
+        renderScreener();
     }});
 }});
 
-// === RENDER: WATCHLIST ===
-function renderWatchlist() {{
-    const container = document.getElementById('watchlistContent');
-    if (watchlist.length === 0) {{
-        container.innerHTML = '<div class="watchlist-empty">Chua co ma nao trong Watchlist.<br><br>Bam <span style="color:var(--yellow)">&#9733;</span> trong Bang xep hang de them ma vao Watchlist.</div>';
-        return;
-    }}
+// ===========================
+// RADAR CHART
+// ===========================
+function drawRadar(stock) {{
+    const canvas = document.getElementById('radar-' + stock.symbol);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
 
-    const wlStocks = ALL_STOCKS.filter(s => watchlist.includes(s.symbol));
-    if (wlStocks.length === 0) {{
-        container.innerHTML = '<div class="watchlist-empty">Khong tim thay du lieu cho cac ma trong Watchlist.</div>';
-        return;
-    }}
+    const rsi_norm = Math.min(n(stock.rsi) / 100, 1);
+    const mfi_norm = Math.min(n(stock.mfi) / 100, 1);
+    const vol_norm = Math.min(n(stock.vol_ratio) / 3, 1);
+    const q_norm = Math.min(n(stock.quality_score) / 25, 1);
+    const m_norm = Math.min(n(stock.momentum_score) / 15, 1);
+    const ch_norm = Math.min(n(stock.channel_position) / 100, 1);
 
-    let html = '<div style="overflow-x:auto;"><table class="stock-table"><thead><tr>';
-    html += '<th>Ma</th><th>Gia</th><th>Diem</th><th>Sao</th><th>Tin hieu</th><th>Kenh</th><th>RSI</th><th>MFI</th><th>Vol</th><th></th>';
-    html += '</tr></thead><tbody>';
-
-    wlStocks.forEach(s => {{
-        html += `<tr onclick="showStockDetail('${{s.symbol}}')" style="cursor:pointer">
-            <td><strong>${{s.symbol}}</strong></td>
-            <td>${{loc(s.close)}}</td>
-            <td>${{n(s.total_score).toFixed(0)}}</td>
-            <td>${{getStars(n(s.stars))}}</td>
-            <td>${{getSignalBadge(s.buy_signal)}}</td>
-            <td>${{getChannelBadge(s.channel)}}</td>
-            <td style="color:${{getRsiColor(n(s.rsi))}}">${{f1(s.rsi)}}</td>
-            <td>${{f1(s.mfi)}}</td>
-            <td>${{f1(s.vol_ratio)}}x</td>
-            <td><span class="watchlist-star active" onclick="toggleWatchlist('${{s.symbol}}', event)">&#9733;</span></td>
-        </tr>`;
-    }});
-
-    html += '</tbody></table></div>';
-    container.innerHTML = html;
-}}
-
-// === RENDER: AI REPORT ===
-function renderAIReport() {{
-    document.getElementById('aiReportContent').textContent = AI_REPORT || 'Chua co bao cao AI. Chay workflow de tao bao cao.';
-}}
-
-// === STOCK DETAIL MODAL ===
-function showStockDetail(symbol) {{
-    const stock = ALL_STOCKS.find(s => s.symbol === symbol);
-    if (!stock) return;
-
-    document.getElementById('modalTitle').textContent = symbol;
-    document.getElementById('modalSub').textContent = (stock.channel || '') + ' | Q:' + n(stock.quality_score).toFixed(0) + ' M:' + n(stock.momentum_score).toFixed(0) + ' | ' + n(stock.stars) + ' Sao';
-
-    let html = '';
-
-    // Top stats
-    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px;">';
-    html += '<div class="ind-item"><div class="ind-label">Gia hien tai</div><div class="ind-value">' + loc(stock.close) + '</div></div>';
-    html += '<div class="ind-item"><div class="ind-label">Quality Score</div><div class="ind-value c-blue">' + n(stock.quality_score).toFixed(0) + '/25</div></div>';
-    html += '<div class="ind-item"><div class="ind-label">Momentum Score</div><div class="ind-value c-purple">' + n(stock.momentum_score).toFixed(0) + '/15</div></div>';
-    html += '<div class="ind-item"><div class="ind-label">Tong diem</div><div class="ind-value c-green">' + n(stock.total_score).toFixed(0) + '/40</div></div>';
-    html += '<div class="ind-item"><div class="ind-label">Sao</div><div class="ind-value">' + getStars(n(stock.stars)) + '</div></div>';
-    html += '<div class="ind-item"><div class="ind-label">Tin hieu</div><div class="ind-value">' + getSignalBadge(stock.buy_signal) + '</div></div>';
-    html += '</div>';
-
-    // Trend & Channel
-    html += '<h6 style="color:var(--text-secondary);margin-bottom:10px;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.5px">Xu huong & Kenh gia</h6>';
-    html += '<div class="ind-grid">';
-    html += '<div class="ind-item"><div class="ind-label">Kenh</div><div class="ind-value">' + getChannelBadge(stock.channel) + '</div></div>';
-    html += '<div class="ind-item"><div class="ind-label">LR Slope %</div><div class="ind-value">' + f2(stock.lr_slope_pct) + '%</div></div>';
-    html += '<div class="ind-item"><div class="ind-label">Channel Pos</div><div class="ind-value">' + f1(stock.channel_position) + '%</div></div>';
-    html += '<div class="ind-item"><div class="ind-label">MA Aligned</div><div class="ind-value" style="color:' + (stock.ma_aligned ? 'var(--green)' : 'var(--red)') + '">' + (stock.ma_aligned ? 'YES' : 'No') + '</div></div>';
-    html += '<div class="ind-item"><div class="ind-label">Above MA200</div><div class="ind-value" style="color:' + (stock.above_ma200 ? 'var(--green)' : 'var(--red)') + '">' + (stock.above_ma200 ? 'YES' : 'No') + '</div></div>';
-    html += '<div class="ind-item"><div class="ind-label">Above MA50</div><div class="ind-value" style="color:' + (stock.above_ma50 ? 'var(--green)' : 'var(--red)') + '">' + (stock.above_ma50 ? 'YES' : 'No') + '</div></div>';
-    html += '</div>';
-
-    // Moving Averages
-    html += '<h6 style="color:var(--text-secondary);margin-bottom:10px;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.5px">Moving Averages</h6>';
-    html += '<div class="ind-grid">';
-    ['ma5','ma10','ma20','ma50','ma200'].forEach(k => {{
-        const val = n(stock[k]);
-        const aboveMA = n(stock.close) >= val;
-        html += '<div class="ind-item"><div class="ind-label">' + k.toUpperCase() + '</div><div class="ind-value" style="color:' + (aboveMA ? 'var(--green)' : 'var(--red)') + '">' + loc(val) + '</div></div>';
-    }});
-    html += '</div>';
-
-    // Momentum
-    html += '<h6 style="color:var(--text-secondary);margin-bottom:10px;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.5px">Momentum</h6>';
-    html += '<div class="ind-grid">';
-    html += '<div class="ind-item"><div class="ind-label">RSI (14)</div><div class="ind-value" style="color:' + getRsiColor(n(stock.rsi)) + '">' + f1(stock.rsi) + '</div></div>';
-    html += '<div class="ind-item"><div class="ind-label">MFI</div><div class="ind-value" style="color:' + (n(stock.mfi) > 50 ? 'var(--green)' : 'var(--red)') + '">' + f1(stock.mfi) + '</div></div>';
-    html += '<div class="ind-item"><div class="ind-label">MACD</div><div class="ind-value" style="color:' + (stock.macd_bullish ? 'var(--green)' : 'var(--red)') + '">' + (stock.macd_bullish ? 'Bullish' : 'Bearish') + '</div></div>';
-    html += '<div class="ind-item"><div class="ind-label">MACD Accel</div><div class="ind-value" style="color:' + (stock.macd_accelerating ? 'var(--green)' : 'var(--red)') + '">' + (stock.macd_accelerating ? 'Tang toc' : 'Giam toc') + '</div></div>';
-    html += '<div class="ind-item"><div class="ind-label">Stoch K</div><div class="ind-value">' + f1(stock.stoch_k) + '</div></div>';
-    html += '<div class="ind-item"><div class="ind-label">Stoch D</div><div class="ind-value">' + f1(stock.stoch_d) + '</div></div>';
-    html += '</div>';
-
-    // Volume & Volatility
-    html += '<h6 style="color:var(--text-secondary);margin-bottom:10px;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.5px">Volume & Bien dong</h6>';
-    html += '<div class="ind-grid">';
-    html += '<div class="ind-item"><div class="ind-label">Vol Ratio</div><div class="ind-value" style="color:' + (n(stock.vol_ratio) > 1.5 ? 'var(--green)' : 'var(--text-primary)') + '">' + f2(stock.vol_ratio) + 'x</div></div>';
-    html += '<div class="ind-item"><div class="ind-label">Vol Surge</div><div class="ind-value" style="color:' + (stock.vol_surge ? 'var(--green)' : 'var(--text-muted)') + '">' + (stock.vol_surge ? 'YES' : 'No') + '</div></div>';
-    html += '<div class="ind-item"><div class="ind-label">ATR %</div><div class="ind-value">' + f2(stock.atr_percent) + '%</div></div>';
-    html += '<div class="ind-item"><div class="ind-label">BB %</div><div class="ind-value">' + f1(stock.bb_percent) + '%</div></div>';
-    html += '<div class="ind-item"><div class="ind-label">BB Squeeze</div><div class="ind-value" style="color:' + (stock.bb_squeeze ? 'var(--yellow)' : 'var(--text-muted)') + '">' + (stock.bb_squeeze ? 'YES' : 'No') + '</div></div>';
-    html += '<div class="ind-item"><div class="ind-label">BB Width</div><div class="ind-value">' + f2(stock.bb_width) + '%</div></div>';
-    html += '</div>';
-
-    // Support / Resistance
-    html += '<h6 style="color:var(--text-secondary);margin-bottom:10px;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.5px">Ho tro & Khang cu</h6>';
-    html += '<div class="ind-grid">';
-    html += '<div class="ind-item"><div class="ind-label">Support</div><div class="ind-value c-green">' + loc(stock.support) + '</div></div>';
-    html += '<div class="ind-item"><div class="ind-label">Resistance</div><div class="ind-value c-red">' + loc(stock.resistance) + '</div></div>';
-    html += '<div class="ind-item"><div class="ind-label">BB Lower</div><div class="ind-value c-green">' + loc(stock.bb_lower) + '</div></div>';
-    html += '<div class="ind-item"><div class="ind-label">BB Upper</div><div class="ind-value c-red">' + loc(stock.bb_upper) + '</div></div>';
-    html += '<div class="ind-item"><div class="ind-label">LR Lower</div><div class="ind-value c-green">' + loc(stock.lr_lower) + '</div></div>';
-    html += '<div class="ind-item"><div class="ind-label">LR Upper</div><div class="ind-value c-red">' + loc(stock.lr_upper) + '</div></div>';
-    html += '</div>';
-
-    // Breakout Status
-    html += '<h6 style="color:var(--text-secondary);margin-bottom:10px;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.5px">Breakout Status</h6>';
-    html += '<div class="ind-grid">';
-    html += '<div class="ind-item"><div class="ind-label">Breakout 20D</div><div class="ind-value" style="color:' + (stock.breakout_20 ? 'var(--green)' : 'var(--text-muted)') + '">' + (stock.breakout_20 ? 'YES' : 'No') + '</div></div>';
-    html += '<div class="ind-item"><div class="ind-label">Breakout 50D</div><div class="ind-value" style="color:' + (stock.breakout_50 ? 'var(--green)' : 'var(--text-muted)') + '">' + (stock.breakout_50 ? 'YES' : 'No') + '</div></div>';
-    html += '<div class="ind-item"><div class="ind-label">High 20D</div><div class="ind-value">' + loc(stock.highest_20) + '</div></div>';
-    html += '<div class="ind-item"><div class="ind-label">High 50D</div><div class="ind-value">' + loc(stock.highest_50) + '</div></div>';
-    html += '</div>';
-
-    document.getElementById('modalBody').innerHTML = html;
-    document.getElementById('stockModal').classList.add('show');
-    document.body.style.overflow = 'hidden';
-}}
-
-function closeModal() {{
-    document.getElementById('stockModal').classList.remove('show');
-    document.body.style.overflow = '';
-}}
-
-document.getElementById('stockModal').addEventListener('click', function(e) {{
-    if (e.target === this) closeModal();
-}});
-
-document.addEventListener('keydown', function(e) {{
-    if (e.key === 'Escape') closeModal();
-}});
-
-// === SEARCH ===
-document.getElementById('globalSearch').addEventListener('input', function() {{
-    if (currentTab === 'ranking') {{
-        currentPage = 1;
-        renderRanking();
-    }} else {{
-        // Switch to ranking tab for search
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-        currentTab = 'ranking';
-        document.querySelector('[data-tab="ranking"]').classList.add('active');
-        document.getElementById('panel-ranking').classList.add('active');
-        currentPage = 1;
-        renderRanking();
-    }}
-}});
-
-// === CHARTS ===
-function initCharts() {{
-    // Channel Distribution
-    const ctxChannel = document.getElementById('channelChart').getContext('2d');
-    new Chart(ctxChannel, {{
-        type: 'doughnut',
+    new Chart(ctx, {{
+        type: 'radar',
         data: {{
-            labels: ['Xanh (Uptrend)', 'Xam (Sideways)', 'Do (Downtrend)'],
-            datasets: [{{ data: [{stats['uptrend']}, {stats['sideways']}, {stats['downtrend']}], backgroundColor: ['#22c55e', '#8892a8', '#ef4444'], borderWidth: 0, borderRadius: 4 }}]
+            labels: ['RSI', 'MFI', 'Volume', 'Quality', 'Momentum', 'Channel'],
+            datasets: [{{
+                data: [rsi_norm * 100, mfi_norm * 100, vol_norm * 100, q_norm * 100, m_norm * 100, ch_norm * 100],
+                backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                borderColor: 'rgba(59, 130, 246, 0.8)',
+                borderWidth: 2,
+                pointBackgroundColor: 'rgba(59, 130, 246, 1)',
+                pointRadius: 3,
+            }}]
         }},
         options: {{
-            responsive: true, maintainAspectRatio: true,
-            cutout: '65%',
-            plugins: {{
-                legend: {{ position: 'bottom', labels: {{ color: '#8892a8', padding: 12, font: {{ size: 11 }} }} }}
-            }}
+            responsive: false,
+            maintainAspectRatio: false,
+            scales: {{
+                r: {{
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: {{ display: false }},
+                    grid: {{ color: 'rgba(30, 41, 59, 0.5)' }},
+                    angleLines: {{ color: 'rgba(30, 41, 59, 0.5)' }},
+                    pointLabels: {{
+                        color: '#94a3b8',
+                        font: {{ size: 10, family: "'JetBrains Mono', monospace" }}
+                    }}
+                }}
+            }},
+            plugins: {{ legend: {{ display: false }} }}
         }}
     }});
+}}
 
-    // Signal Distribution
-    const ctxSignal = document.getElementById('signalChart').getContext('2d');
-    new Chart(ctxSignal, {{
+// ===========================
+// AI REPORT
+// ===========================
+function renderAIReport() {{
+    const raw = AI_REPORT || 'Chua co bao cao AI. Chay pipeline de tao bao cao.';
+    let html = raw
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+        .replace(/^# (.+)$/gm, '<h2>$1</h2>')
+        .replace(/^---$/gm, '<hr>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/^- (.+)$/gm, '<li>$1</li>')
+        .replace(/^\\d+\\. (.+)$/gm, '<li>$1</li>')
+        .replace(/(<li>.*<\\/li>\\n?)+/g, function(m) {{ return '<ul>' + m + '</ul>'; }})
+        .replace(/\\n\\n/g, '</p><p>')
+        .replace(/\\n/g, '<br>');
+    html = '<p>' + html + '</p>';
+    html = html.replace(/<p><h([23])>/g, '<h$1>').replace(/<\\/h([23])><\\/p>/g, '</h$1>');
+    html = html.replace(/<p><hr><\\/p>/g, '<hr>');
+    html = html.replace(/<p><ul>/g, '<ul>').replace(/<\\/ul><\\/p>/g, '</ul>');
+    document.getElementById('aiReportContent').innerHTML = html;
+}}
+
+// ===========================
+// SEARCH
+// ===========================
+document.getElementById('globalSearch').addEventListener('input', function() {{
+    if (currentTab !== 'screener') {{
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        currentTab = 'screener';
+        document.querySelector('[data-tab="screener"]').classList.add('active');
+        document.getElementById('panel-screener').classList.add('active');
+    }}
+    currentPage = 1;
+    expandedRow = null;
+    renderScreener();
+}});
+
+// ===========================
+// CHARTS
+// ===========================
+function initCharts() {{
+    const chartOpts = {{
+        responsive: true,
+        maintainAspectRatio: true,
+        cutout: '65%',
+        plugins: {{
+            legend: {{
+                position: 'bottom',
+                labels: {{
+                    color: '#94a3b8',
+                    padding: 12,
+                    font: {{ size: 10, family: "'JetBrains Mono', monospace" }}
+                }}
+            }}
+        }}
+    }};
+
+    // Channel distribution
+    new Chart(document.getElementById('channelChart').getContext('2d'), {{
+        type: 'doughnut',
+        data: {{
+            labels: ['Xanh', 'Xam', 'Do'],
+            datasets: [{{
+                data: [{stats['uptrend']}, {stats['sideways']}, {stats['downtrend']}],
+                backgroundColor: ['#10b981', '#64748b', '#ef4444'],
+                borderWidth: 0,
+                borderRadius: 4
+            }}]
+        }},
+        options: chartOpts
+    }});
+
+    // Signal type distribution
+    new Chart(document.getElementById('signalDistChart').getContext('2d'), {{
         type: 'doughnut',
         data: {{
             labels: ['Breakout', 'Momentum', 'Pullback', 'Reversal'],
-            datasets: [{{ data: [{stats['breakout']}, {stats['momentum']}, {stats['pullback']}, {stats['reversal']}], backgroundColor: ['#22c55e', '#3b82f6', '#eab308', '#a855f7'], borderWidth: 0, borderRadius: 4 }}]
+            datasets: [{{
+                data: [{stats['breakout']}, {stats['momentum']}, {stats['pullback']}, {stats['reversal']}],
+                backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6'],
+                borderWidth: 0,
+                borderRadius: 4
+            }}]
         }},
-        options: {{
-            responsive: true, maintainAspectRatio: true,
-            cutout: '65%',
-            plugins: {{
-                legend: {{ position: 'bottom', labels: {{ color: '#8892a8', padding: 12, font: {{ size: 11 }} }} }}
-            }}
-        }}
+        options: chartOpts
+    }});
+
+    // Recommendation distribution
+    new Chart(document.getElementById('recoChart').getContext('2d'), {{
+        type: 'doughnut',
+        data: {{
+            labels: ['MUA MANH', 'MUA', 'TRUNG LAP', 'BAN', 'BAN MANH'],
+            datasets: [{{
+                data: [{stats['buy_strong']}, {stats['buy']}, {stats['neutral']}, {stats['sell']}, {stats['sell_strong']}],
+                backgroundColor: ['#10b981', '#34d399', '#64748b', '#f97316', '#ef4444'],
+                borderWidth: 0,
+                borderRadius: 4
+            }}]
+        }},
+        options: chartOpts
     }});
 }}
 
-// === INIT ===
+// ===========================
+// INIT
+// ===========================
 document.addEventListener('DOMContentLoaded', function() {{
+    initTicker();
     initCharts();
-    renderSignals();
+    renderHeatmap();
     renderAIReport();
 }});
 </script>
@@ -1525,9 +1590,11 @@ document.addEventListener('DOMContentLoaded', function() {{
 
     def _generate_portfolio_html(self, positions):
         if not positions:
-            return '<div style="text-align:center;padding:30px;color:var(--text-muted)"><p>Chua co vi the nao</p><p style="font-size:0.85rem">Dung Telegram Bot de them vi the:</p><code style="color:var(--blue)">/buy VCI 1000 37000</code></div>'
+            return '<div style="text-align:center;padding:30px;color:var(--text-muted)">Chua co vi the nao trong portfolio.</div>'
 
-        html = '<div style="overflow-x:auto"><table class="stock-table"><thead><tr><th>Ma</th><th>So CP</th><th>Gia mua</th><th>Gia hien tai</th><th>P&L</th></tr></thead><tbody>'
+        html = '<div style="overflow-x:auto"><table class="screener-table"><thead><tr><th>Ma</th><th>So CP</th><th>Gia mua</th><th>Gia hien tai</th><th>P&L</th><th>Ty trong</th></tr></thead><tbody>'
+
+        total_value = sum(pos.get('quantity', 0) * pos.get('current_price', pos.get('entry_price', 0)) for pos in positions)
 
         for pos in positions:
             symbol = pos.get('symbol', '')
@@ -1537,8 +1604,19 @@ document.addEventListener('DOMContentLoaded', function() {{
             pnl = pos.get('pnl_percent', 0)
             pnl_cls = 'c-green' if pnl >= 0 else 'c-red'
             pnl_sign = '+' if pnl >= 0 else ''
+            weight = round(qty * current / total_value * 100, 1) if total_value > 0 else 0
 
-            html += f'<tr style="cursor:pointer" onclick="showStockDetail(\'{symbol}\')"><td><strong>{symbol}</strong></td><td>{qty:,}</td><td>{entry:,.0f}</td><td>{current:,.0f}</td><td class="{pnl_cls}">{pnl_sign}{pnl:.2f}%</td></tr>'
+            html += f'''<tr>
+                <td class="stock-name">{symbol}</td>
+                <td class="mono">{qty:,}</td>
+                <td class="mono">{entry:,.0f}</td>
+                <td class="mono">{current:,.0f}</td>
+                <td class="mono {pnl_cls}">{pnl_sign}{pnl:.2f}%</td>
+                <td>
+                    <span class="mono">{weight}%</span>
+                    <div class="weight-bar"><div class="weight-bar-fill" style="width:{weight}%;background:var(--accent-blue)"></div></div>
+                </td>
+            </tr>'''
 
         html += '</tbody></table></div>'
         return html
@@ -1552,7 +1630,7 @@ document.addEventListener('DOMContentLoaded', function() {{
 
     def run(self):
         print("=" * 60)
-        print("TẠO DASHBOARD V5")
+        print("TẠO DASHBOARD V6")
         print("=" * 60)
         self.save_dashboard()
 
