@@ -31,12 +31,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      
+          pip install --extra-index-url https://fiinquant.github.io/fiinquantx/simple fiinquantx || echo "FiinQuantX not available, using vnstock fallback"
+
       - name: Run VN Stock Sniper
         env:
           CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
-          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          FIINQUANT_USERNAME: ${{ secrets.FIINQUANT_USERNAME }}
+          FIINQUANT_PASSWORD: ${{ secrets.FIINQUANT_PASSWORD }}
         run: python main.py
       
       - name: Commit and push changes
