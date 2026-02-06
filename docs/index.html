@@ -477,10 +477,35 @@
 
         /* AI Report */
         .ai-report-content {
-            white-space: pre-wrap;
             line-height: 1.8;
             font-size: 0.9rem;
             color: var(--text-secondary);
+        }
+        .ai-report-content h2 {
+            color: var(--text-primary);
+            font-size: 1.15rem;
+            margin-top: 28px;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+        .ai-report-content h3 {
+            color: var(--blue);
+            font-size: 1rem;
+            margin-top: 20px;
+            margin-bottom: 8px;
+        }
+        .ai-report-content strong { color: var(--text-primary); }
+        .ai-report-content ul, .ai-report-content ol {
+            padding-left: 20px;
+            margin: 8px 0;
+        }
+        .ai-report-content li { margin-bottom: 4px; }
+        .ai-report-content p { margin: 8px 0; }
+        .ai-report-content hr {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 20px 0;
         }
 
         /* Watchlist */
@@ -557,7 +582,7 @@
             <input type="text" id="globalSearch" placeholder="Tim kiem ma co phieu... (vd: FPT, VNM, HPG)" autocomplete="off">
         </div>
         <div class="header-time">
-            Cap nhat: 06/02/2026 20:07<br>
+            Cap nhat: 06/02/2026 20:52<br>
             10 ma co phieu
         </div>
     </div>
@@ -1148,7 +1173,28 @@ function renderWatchlist() {
 
 // === RENDER: AI REPORT ===
 function renderAIReport() {
-    document.getElementById('aiReportContent').textContent = AI_REPORT || 'Chua co bao cao AI. Chay workflow de tao bao cao.';
+    const raw = AI_REPORT || 'Chua co bao cao AI. Chay workflow de tao bao cao.';
+    // Simple markdown to HTML
+    let html = raw
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+        .replace(/^---$/gm, '<hr>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        .replace(/^- (.+)$/gm, '<li>$1</li>')
+        .replace(/(<li>.*<\/li>
+?)+/g, function(m) { return '<ul>' + m + '</ul>'; })
+        .replace(/
+
+/g, '</p><p>')
+        .replace(/
+/g, '<br>');
+    html = '<p>' + html + '</p>';
+    html = html.replace(/<p><h([23])>/g, '<h$1>').replace(/<\/h([23])><\/p>/g, '</h$1>');
+    html = html.replace(/<p><hr><\/p>/g, '<hr>');
+    html = html.replace(/<p><ul>/g, '<ul>').replace(/<\/ul><\/p>/g, '</ul>');
+    document.getElementById('aiReportContent').innerHTML = html;
 }
 
 // === STOCK DETAIL MODAL ===
