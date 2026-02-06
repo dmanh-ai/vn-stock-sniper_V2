@@ -12,10 +12,14 @@ CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY", "").strip().replace("\n", "").repla
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "").strip().replace("\n", "").replace("\r", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "").strip().replace("\n", "").replace("\r", "")
 
+# FiinQuant
+FIINQUANT_USERNAME = os.getenv("FIINQUANT_USERNAME", "").strip()
+FIINQUANT_PASSWORD = os.getenv("FIINQUANT_PASSWORD", "").strip()
+
 # === DATA SETTINGS ===
 TOP_STOCKS_COUNT = 300  # Số mã cổ phiếu cần lấy (top volume)
 DATA_START_DATE = "2024-01-01"  # Ngày bắt đầu lấy dữ liệu
-DATA_SOURCE = "VCI"  # Nguồn dữ liệu: VCI, TCBS, SSI
+DATA_SOURCE = "FIINQUANT"  # Nguồn dữ liệu: FIINQUANT (primary), VCI (fallback)
 
 # === ANALYSIS SETTINGS ===
 # Moving Averages
