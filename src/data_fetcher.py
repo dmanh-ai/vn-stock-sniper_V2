@@ -1,8 +1,7 @@
 """
-VN Stock Sniper - Data Fetcher V5.1
-Universe: VN100 (HOSE) + HNX30 (HNX) = ~130 mã
-Primary: FiinQuantX (fiinquant.vn)
-Fallback: vnstock (chỉ price data)
+VN Stock Sniper - Data Fetcher V6
+Universe: Top ~300 mã theo volume (HOSE + HNX)
+Source: FiinQuantX ONLY (fiinquant.vn)
 
 Rate limits FiinQuantX (free):
   - 90 requests/phút, 80 requests/giây
@@ -41,85 +40,27 @@ def is_rate_limit_error(error_msg: str) -> bool:
     return any(k in msg for k in keywords)
 
 
-def get_dynamic_symbols():
-    """Lấy danh sách mã VN100 + HNX30 động từ vnstock"""
-    try:
-        from vnstock import Vnstock
-        vs = Vnstock()
-        stock = vs.stock(symbol='ACB', source='VCI')
-
-        vn100 = []
-        hnx30 = []
-
-        try:
-            vn100_data = stock.listing.symbols_by_group('VN100')
-            if vn100_data is not None:
-                if isinstance(vn100_data, pd.DataFrame):
-                    for col in ['symbol', 'ticker', 'code', 'Symbol', 'Ticker']:
-                        if col in vn100_data.columns:
-                            vn100 = vn100_data[col].tolist()
-                            break
-                    if not vn100 and len(vn100_data.columns) > 0:
-                        vn100 = vn100_data.iloc[:, 0].tolist()
-                elif isinstance(vn100_data, list):
-                    vn100 = vn100_data
-                print(f"   ✅ VN100: {len(vn100)} mã (dynamic)")
-        except Exception as e:
-            print(f"   ⚠️ VN100 dynamic fetch failed: {e}")
-
-        try:
-            hnx30_data = stock.listing.symbols_by_group('HNX30')
-            if hnx30_data is not None:
-                if isinstance(hnx30_data, pd.DataFrame):
-                    for col in ['symbol', 'ticker', 'code', 'Symbol', 'Ticker']:
-                        if col in hnx30_data.columns:
-                            hnx30 = hnx30_data[col].tolist()
-                            break
-                    if not hnx30 and len(hnx30_data.columns) > 0:
-                        hnx30 = hnx30_data.iloc[:, 0].tolist()
-                elif isinstance(hnx30_data, list):
-                    hnx30 = hnx30_data
-                print(f"   ✅ HNX30: {len(hnx30)} mã (dynamic)")
-        except Exception as e:
-            print(f"   ⚠️ HNX30 dynamic fetch failed: {e}")
-
-        if vn100 or hnx30:
-            cache = {
-                'vn100': [str(s) for s in vn100],
-                'hnx30': [str(s) for s in hnx30],
-                'updated': datetime.now().strftime('%Y-%m-%d %H:%M')
-            }
-            os.makedirs(DATA_DIR, exist_ok=True)
-            with open(SYMBOLS_CACHE_FILE, 'w') as f:
-                json.dump(cache, f, indent=2)
-            return vn100, hnx30
-
-    except ImportError:
-        print("   ⚠️ vnstock chưa cài để lấy danh sách động")
-    except Exception as e:
-        if not is_rate_limit_error(str(e)):
-            print(f"   ⚠️ Lỗi lấy danh sách động: {e}")
-        else:
-            print(f"   ⚠️ vnstock rate limit, dùng danh sách cố định")
-
-    return [], []
-
-
 def load_cached_symbols():
     """Đọc danh sách mã từ cache"""
     try:
         if os.path.exists(SYMBOLS_CACHE_FILE):
             with open(SYMBOLS_CACHE_FILE, 'r') as f:
                 cache = json.load(f)
+            # Support both old and new cache format
+            if 'all_symbols' in cache:
+                symbols = cache['all_symbols']
+                updated = cache.get('updated', '')
+                print(f"   📋 Cache: {len(symbols)} mã (cập nhật: {updated})")
+                return symbols
             vn100 = cache.get('vn100', [])
             hnx30 = cache.get('hnx30', [])
             updated = cache.get('updated', '')
             if vn100 or hnx30:
                 print(f"   📋 Cache: VN100={len(vn100)}, HNX30={len(hnx30)} (cập nhật: {updated})")
-                return vn100, hnx30
+                return list(dict.fromkeys(vn100 + hnx30))
     except Exception:
         pass
-    return [], []
+    return []
 
 
 class FiinQuantFetcher:
@@ -176,11 +117,10 @@ class FiinQuantFetcher:
     def _handle_rate_limit(self, error_msg: str) -> bool:
         """Xử lý rate limit: chờ rồi retry. Return True nếu nên retry."""
         if is_rate_limit_error(error_msg):
-            # Trích xuất thời gian chờ từ error message
             wait_time = FIINQUANT_RATE_LIMIT_WAIT
             match = re.search(r'(\d+)\s*(?:giây|second|sec)', str(error_msg).lower())
             if match:
-                wait_time = int(match.group(1)) + 5  # Thêm 5s buffer
+                wait_time = int(match.group(1)) + 5
 
             print(f"   ⏳ Rate limit! Chờ {wait_time}s...")
             time.sleep(wait_time)
@@ -210,7 +150,6 @@ class FiinQuantFetcher:
                 except Exception as e:
                     if self._handle_rate_limit(str(e)) and attempt < max_retries:
                         continue
-                    # Fallback basic fields
                     if fields != self.BASIC_FIELDS:
                         self._extra_fields_available = False
                         self._throttle()
@@ -283,63 +222,8 @@ class FiinQuantFetcher:
         return pd.DataFrame()
 
 
-class VnStockFetcher:
-    """Lấy dữ liệu từ vnstock (fallback price data only)"""
-
-    def __init__(self, source: str = "VCI"):
-        self.source = source
-        self.vnstock = None
-        self._last_request_time = 0
-
-        try:
-            from vnstock import Vnstock
-            self.vnstock = Vnstock()
-            print("✅ vnstock loaded (fallback)")
-        except Exception as e:
-            print(f"⚠️ vnstock error: {e}")
-
-    def _throttle(self):
-        """vnstock Guest: 20 req/phút = 1 req mỗi 3.5s"""
-        now = time.time()
-        elapsed = now - self._last_request_time
-        if elapsed < 3.5:
-            time.sleep(3.5 - elapsed)
-        self._last_request_time = time.time()
-
-    def get_price_history(self, symbol: str) -> pd.DataFrame:
-        """Lấy giá 1 mã"""
-        if not self.vnstock:
-            return pd.DataFrame()
-
-        self._throttle()
-        end_date = datetime.now().strftime('%Y-%m-%d')
-
-        try:
-            stock = self.vnstock.stock(symbol=symbol, source=self.source)
-            df = stock.quote.history(start=DATA_START_DATE, end=end_date)
-
-            if df is not None and len(df) > 0:
-                df['symbol'] = symbol
-                return df
-            return pd.DataFrame()
-        except Exception as e:
-            if is_rate_limit_error(str(e)):
-                print(f"   ⏳ vnstock rate limit, chờ 60s...")
-                time.sleep(60)
-                # Retry 1 lần
-                try:
-                    stock = self.vnstock.stock(symbol=symbol, source=self.source)
-                    df = stock.quote.history(start=DATA_START_DATE, end=end_date)
-                    if df is not None and len(df) > 0:
-                        df['symbol'] = symbol
-                        return df
-                except Exception:
-                    pass
-            return pd.DataFrame()
-
-
 class DataFetcher:
-    """Lấy dữ liệu chứng khoán Việt Nam - Top 300 mã theo volume"""
+    """Lấy dữ liệu chứng khoán Việt Nam - Top 300 mã - FiinQuant ONLY"""
 
     # === DANH SÁCH CỐ ĐỊNH (fallback khi không lấy được động) ===
     VN100_SYMBOLS = [
@@ -395,86 +279,33 @@ class DataFetcher:
     def __init__(self):
         self.source = DATA_SOURCE
         self.fiinquant = None
-        self.vnstock_fallback = None
 
-        # Thử kết nối FiinQuant trước
+        # FiinQuant ONLY - không fallback vnstock
         if FIINQUANT_USERNAME and FIINQUANT_PASSWORD:
             self.fiinquant = FiinQuantFetcher(FIINQUANT_USERNAME, FIINQUANT_PASSWORD)
             if not self.fiinquant.login():
                 self.fiinquant = None
-
-        # Fallback vnstock chỉ khi FiinQuant không dùng được
-        if self.fiinquant is None:
-            print("📡 Sử dụng vnstock làm nguồn dữ liệu (fallback)")
-            fallback_source = "VCI" if self.source == "FIINQUANT" else self.source
-            self.vnstock_fallback = VnStockFetcher(source=fallback_source)
-
-    def get_all_exchange_symbols(self) -> list:
-        """Lấy tất cả mã từ HOSE + HNX qua vnstock listing API"""
-        try:
-            from vnstock import Vnstock
-            vs = Vnstock()
-            stock = vs.stock(symbol='ACB', source='VCI')
-
-            all_symbols = []
-            for group in ['HOSE', 'HNX']:
-                try:
-                    data = stock.listing.symbols_by_exchange(group)
-                    if data is not None:
-                        if isinstance(data, pd.DataFrame):
-                            for col in ['symbol', 'ticker', 'code', 'Symbol', 'Ticker']:
-                                if col in data.columns:
-                                    all_symbols.extend(data[col].tolist())
-                                    break
-                            if not all_symbols and len(data.columns) > 0:
-                                all_symbols.extend(data.iloc[:, 0].tolist())
-                        elif isinstance(data, list):
-                            all_symbols.extend(data)
-                    print(f"   ✅ {group}: {len(all_symbols)} mã")
-                except Exception as e:
-                    print(f"   ⚠️ {group} listing failed: {e}")
-
-            return list(dict.fromkeys(all_symbols))
-        except Exception as e:
-            print(f"   ⚠️ Không lấy được danh sách sàn: {e}")
-            return []
+                print("❌ FiinQuant login thất bại. Không có nguồn dữ liệu!")
+        else:
+            print("❌ Thiếu FIINQUANT_USERNAME / FIINQUANT_PASSWORD trong .env")
+            print("   Vui lòng cấu hình FiinQuant credentials.")
 
     def get_symbols(self) -> list:
-        """Lấy danh sách ~300 mã có vol lớn nhất (HOSE + HNX)"""
+        """Lấy danh sách ~300 mã (HOSE + HNX)"""
         from src.config import TOP_STOCKS_COUNT
-        print(f"📋 Lấy danh sách top {TOP_STOCKS_COUNT} mã theo volume...")
+        print(f"📋 Lấy danh sách top {TOP_STOCKS_COUNT} mã...")
 
-        # Bước 1: Thử lấy tất cả mã từ sàn
-        all_exchange = self.get_all_exchange_symbols()
+        # Bước 1: Thử đọc từ cache
+        cached = load_cached_symbols()
+        if len(cached) >= 100:
+            if len(cached) >= TOP_STOCKS_COUNT:
+                return cached[:TOP_STOCKS_COUNT]
 
-        if len(all_exchange) >= 200:
-            print(f"   📊 Lấy được {len(all_exchange)} mã từ sàn")
-            # Cache lại
-            cache = {
-                'all_symbols': [str(s) for s in all_exchange],
-                'updated': datetime.now().strftime('%Y-%m-%d %H:%M')
-            }
-            os.makedirs(DATA_DIR, exist_ok=True)
-            with open(SYMBOLS_CACHE_FILE, 'w') as f:
-                json.dump(cache, f, indent=2)
-            return all_exchange[:TOP_STOCKS_COUNT]
+        # Bước 2: Dùng danh sách cố định
+        all_symbols = list(dict.fromkeys(self.VN100_SYMBOLS + self.HNX30_SYMBOLS))
+        print(f"   📋 VN100 + HNX30: {len(all_symbols)} mã (cố định)")
 
-        # Bước 2: Thử VN100 + HNX30 dynamic
-        vn100, hnx30 = get_dynamic_symbols()
-
-        if not vn100 and not hnx30:
-            vn100, hnx30 = load_cached_symbols()
-
-        if not vn100:
-            vn100 = self.VN100_SYMBOLS
-            print(f"   📋 VN100: {len(vn100)} mã (cố định)")
-        if not hnx30:
-            hnx30 = self.HNX30_SYMBOLS
-            print(f"   📋 HNX30: {len(hnx30)} mã (cố định)")
-
-        # Bước 3: Bổ sung thêm mã từ danh sách mở rộng để đạt ~300
-        all_symbols = list(dict.fromkeys(vn100 + hnx30))
-
+        # Bước 3: Bổ sung thêm mã để đạt ~300
         if len(all_symbols) < TOP_STOCKS_COUNT:
             extra = [s for s in self.EXTRA_HOSE_SYMBOLS + self.EXTRA_HNX_SYMBOLS
                      if s not in all_symbols]
@@ -486,14 +317,14 @@ class DataFetcher:
 
     def fetch_with_timeout(self, symbol: str, timeout_sec: int = 30) -> pd.DataFrame:
         """Lấy data với timeout"""
+        if not self.fiinquant:
+            return pd.DataFrame()
+
         result = [pd.DataFrame()]
 
         def fetch():
             try:
-                if self.fiinquant:
-                    result[0] = self.fiinquant.get_price_history(symbol)
-                elif self.vnstock_fallback:
-                    result[0] = self.vnstock_fallback.get_price_history(symbol)
+                result[0] = self.fiinquant.get_price_history(symbol)
             except Exception:
                 pass
 
@@ -509,11 +340,14 @@ class DataFetcher:
         return result[0]
 
     def fetch_all_data(self) -> pd.DataFrame:
-        """Lấy dữ liệu tất cả mã VN100 + HNX30"""
+        """Lấy dữ liệu tất cả mã - FiinQuant ONLY"""
+        if not self.fiinquant:
+            print("❌ Không có FiinQuant connection. Dừng.")
+            return pd.DataFrame()
+
         symbols = self.get_symbols()
 
-        source_name = "FiinQuant" if self.fiinquant else "vnstock"
-        print(f"\n📥 Lấy dữ liệu {len(symbols)} mã từ {source_name}...")
+        print(f"\n📥 Lấy dữ liệu {len(symbols)} mã từ FiinQuant...")
         print(f"⏰ Rate limit: {FIINQUANT_DELAY}s/req | Timeout: 30s/mã\n")
 
         all_data = []
@@ -538,17 +372,10 @@ class DataFetcher:
                 fail += 1
                 print(f"   [{i+1}/{len(symbols)}] ❌ {symbol}")
 
-                # Nếu FiinQuant lỗi quá nhiều, chuyển vnstock
-                if self.fiinquant and fail > 10 and ok == 0:
-                    print("\n⚠️ FiinQuant lỗi quá nhiều, chuyển sang vnstock...")
-                    self.fiinquant = None
-                    self.vnstock_fallback = VnStockFetcher(source="VCI")
-                    fail = 0
-
         total = time.time() - t0
         print(f"\n{'='*50}")
         print(f"📊 {ok} ✅ / {fail} ❌ / {len(symbols)} tổng")
-        print(f"📡 Nguồn: {source_name}")
+        print(f"📡 Nguồn: FiinQuant")
         print(f"⏱️ {total:.0f}s ({total/60:.1f} phút)")
         print(f"{'='*50}")
 
@@ -570,9 +397,7 @@ class DataFetcher:
     def run(self) -> pd.DataFrame:
         """Chạy lấy dữ liệu"""
         print("=" * 60)
-        print("📥 BẮT ĐẦU LẤY DỮ LIỆU - TOP 300 MÃ THEO VOLUME")
-        source_name = "FiinQuant" if self.fiinquant else "vnstock"
-        print(f"📡 Nguồn: {source_name}")
+        print("📥 BẮT ĐẦU LẤY DỮ LIỆU - TOP 300 MÃ (FiinQuant ONLY)")
         print("=" * 60)
 
         df = self.fetch_all_data()
