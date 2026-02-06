@@ -1,8 +1,12 @@
 """
-VN Stock Sniper - Data Fetcher V5
+VN Stock Sniper - Data Fetcher V5.1
 Universe: VN100 (HOSE) + HNX30 (HNX) = ~130 mã
-Primary: FiinQuantX (fiinquant.vn) - tận dụng tối đa dữ liệu
-Fallback: vnstock
+Primary: FiinQuantX (fiinquant.vn)
+Fallback: vnstock (chỉ price data)
+
+Rate limits FiinQuantX (free):
+  - 90 requests/phút, 80 requests/giây
+  - Max 33 mã/lần (lịch sử), period tối đa 1 năm
 """
 
 import pandas as pd
@@ -12,6 +16,7 @@ import time
 import os
 import threading
 import json
+import re
 
 from src.config import (
     DATA_START_DATE, DATA_SOURCE,
@@ -21,7 +26,19 @@ from src.config import (
 
 # File lưu danh sách mã động
 SYMBOLS_CACHE_FILE = f"{DATA_DIR}/symbols_cache.json"
-FUNDAMENTAL_FILE = f"{DATA_DIR}/fundamental_data.csv"
+
+# Rate limit settings
+FIINQUANT_BATCH_SIZE = 33       # Max mã/request theo FiinQuant
+FIINQUANT_DELAY = 0.8           # Giây giữa mỗi request (~75 req/phút, dưới limit 90)
+FIINQUANT_RATE_LIMIT_WAIT = 65  # Chờ 65 giây khi bị rate limit
+
+
+def is_rate_limit_error(error_msg: str) -> bool:
+    """Kiểm tra lỗi có phải rate limit không"""
+    keywords = ['rate limit', 'too many', '429', 'giới hạn', 'limit exceeded',
+                'maximum api request', 'wait to retry']
+    msg = str(error_msg).lower()
+    return any(k in msg for k in keywords)
 
 
 def get_dynamic_symbols():
@@ -38,7 +55,6 @@ def get_dynamic_symbols():
             vn100_data = stock.listing.symbols_by_group('VN100')
             if vn100_data is not None:
                 if isinstance(vn100_data, pd.DataFrame):
-                    # Tìm column chứa symbol
                     for col in ['symbol', 'ticker', 'code', 'Symbol', 'Ticker']:
                         if col in vn100_data.columns:
                             vn100 = vn100_data[col].tolist()
@@ -68,7 +84,6 @@ def get_dynamic_symbols():
             print(f"   ⚠️ HNX30 dynamic fetch failed: {e}")
 
         if vn100 or hnx30:
-            # Lưu cache
             cache = {
                 'vn100': [str(s) for s in vn100],
                 'hnx30': [str(s) for s in hnx30],
@@ -82,7 +97,10 @@ def get_dynamic_symbols():
     except ImportError:
         print("   ⚠️ vnstock chưa cài để lấy danh sách động")
     except Exception as e:
-        print(f"   ⚠️ Lỗi lấy danh sách động: {e}")
+        if not is_rate_limit_error(str(e)):
+            print(f"   ⚠️ Lỗi lấy danh sách động: {e}")
+        else:
+            print(f"   ⚠️ vnstock rate limit, dùng danh sách cố định")
 
     return [], []
 
@@ -105,9 +123,8 @@ def load_cached_symbols():
 
 
 class FiinQuantFetcher:
-    """Lấy dữ liệu từ FiinQuantX - tận dụng tối đa"""
+    """Lấy dữ liệu từ FiinQuantX - tận dụng tối đa, xử lý rate limit"""
 
-    # Các fields trading data mở rộng
     TRADING_FIELDS = ['open', 'high', 'low', 'close', 'volume', 'value']
     BASIC_FIELDS = ['open', 'high', 'low', 'close', 'volume']
 
@@ -116,6 +133,8 @@ class FiinQuantFetcher:
         self.password = password
         self.client = None
         self._extra_fields_available = None
+        self._request_count = 0
+        self._last_request_time = 0
 
     def login(self) -> bool:
         """Đăng nhập FiinQuant"""
@@ -126,8 +145,6 @@ class FiinQuantFetcher:
                 password=self.password
             ).login()
             print("✅ FiinQuant: Đăng nhập thành công")
-
-            # Thử khám phá các method có sẵn
             self._discover_methods()
             return True
         except ImportError:
@@ -142,61 +159,92 @@ class FiinQuantFetcher:
         """Khám phá các method có sẵn trong FiinQuantX client"""
         if not self.client:
             return
-
         methods = [m for m in dir(self.client) if not m.startswith('_')]
         fetch_methods = [m for m in methods if 'fetch' in m.lower() or 'get' in m.lower()]
         if fetch_methods:
             print(f"   📡 FiinQuant methods: {', '.join(fetch_methods)}")
 
-    def get_price_history(self, symbol: str, period: int = 500) -> pd.DataFrame:
-        """Lấy lịch sử giá 1 mã từ FiinQuant - thử lấy nhiều fields nhất"""
+    def _throttle(self):
+        """Rate limiting: đảm bảo không vượt quá 90 req/phút"""
+        now = time.time()
+        elapsed = now - self._last_request_time
+        if elapsed < FIINQUANT_DELAY:
+            time.sleep(FIINQUANT_DELAY - elapsed)
+        self._last_request_time = time.time()
+        self._request_count += 1
+
+    def _handle_rate_limit(self, error_msg: str) -> bool:
+        """Xử lý rate limit: chờ rồi retry. Return True nếu nên retry."""
+        if is_rate_limit_error(error_msg):
+            # Trích xuất thời gian chờ từ error message
+            wait_time = FIINQUANT_RATE_LIMIT_WAIT
+            match = re.search(r'(\d+)\s*(?:giây|second|sec)', str(error_msg).lower())
+            if match:
+                wait_time = int(match.group(1)) + 5  # Thêm 5s buffer
+
+            print(f"   ⏳ Rate limit! Chờ {wait_time}s...")
+            time.sleep(wait_time)
+            return True
+        return False
+
+    def get_price_history(self, symbol: str, period: int = 250) -> pd.DataFrame:
+        """Lấy lịch sử giá 1 mã từ FiinQuant (period max 250 cho free tier ~1 năm)"""
         if not self.client:
             return pd.DataFrame()
 
-        try:
-            # Thử lấy với fields mở rộng trước
-            fields = self.TRADING_FIELDS if self._extra_fields_available is not False else self.BASIC_FIELDS
-
+        max_retries = 2
+        for attempt in range(max_retries + 1):
             try:
-                data = self.client.Fetch_Trading_Data(
-                    tickers=symbol,
-                    fields=fields,
-                    adjusted=True,
-                    period=period,
-                    realtime=False,
-                    by='1d',
-                ).get_data()
-            except Exception:
-                # Fallback về basic fields
-                if fields != self.BASIC_FIELDS:
-                    self._extra_fields_available = False
+                self._throttle()
+                fields = self.TRADING_FIELDS if self._extra_fields_available is not False else self.BASIC_FIELDS
+
+                try:
                     data = self.client.Fetch_Trading_Data(
                         tickers=symbol,
-                        fields=self.BASIC_FIELDS,
+                        fields=fields,
                         adjusted=True,
                         period=period,
                         realtime=False,
                         by='1d',
                     ).get_data()
-                else:
-                    raise
+                except Exception as e:
+                    if self._handle_rate_limit(str(e)) and attempt < max_retries:
+                        continue
+                    # Fallback basic fields
+                    if fields != self.BASIC_FIELDS:
+                        self._extra_fields_available = False
+                        self._throttle()
+                        data = self.client.Fetch_Trading_Data(
+                            tickers=symbol,
+                            fields=self.BASIC_FIELDS,
+                            adjusted=True,
+                            period=period,
+                            realtime=False,
+                            by='1d',
+                        ).get_data()
+                    else:
+                        raise
 
-            if self._extra_fields_available is None and data is not None:
-                self._extra_fields_available = True
+                if self._extra_fields_available is None and data is not None:
+                    self._extra_fields_available = True
 
-            if data is not None and len(data) > 0:
-                df = data if isinstance(data, pd.DataFrame) else pd.DataFrame(data)
-                return self._normalize_df(df, symbol)
+                if data is not None and len(data) > 0:
+                    df = data if isinstance(data, pd.DataFrame) else pd.DataFrame(data)
+                    return self._normalize_df(df, symbol)
 
-            return pd.DataFrame()
+                return pd.DataFrame()
 
-        except Exception as e:
-            print(f"   ❌ FiinQuant {symbol}: {e}")
-            return pd.DataFrame()
+            except Exception as e:
+                if self._handle_rate_limit(str(e)) and attempt < max_retries:
+                    continue
+                if attempt == max_retries:
+                    print(f"   ❌ FiinQuant {symbol}: {e}")
+                return pd.DataFrame()
+
+        return pd.DataFrame()
 
     def _normalize_df(self, df: pd.DataFrame, symbol: str) -> pd.DataFrame:
         """Chuẩn hóa DataFrame từ FiinQuant"""
-        # Map columns
         col_map = {}
         for col in df.columns:
             cl = col.lower().strip()
@@ -210,7 +258,6 @@ class FiinQuantFetcher:
         if col_map:
             df = df.rename(columns=col_map)
 
-        # Đảm bảo có column time
         if 'time' not in df.columns:
             if isinstance(df.index, pd.DatetimeIndex):
                 df['time'] = df.index
@@ -225,7 +272,6 @@ class FiinQuantFetcher:
 
         df['symbol'] = symbol
 
-        # Columns cần thiết + optional
         required = ['time', 'open', 'high', 'low', 'close', 'volume', 'symbol']
         optional = ['value']
 
@@ -236,66 +282,14 @@ class FiinQuantFetcher:
         print(f"   ⚠️ {symbol}: Thiếu columns. Có: {list(df.columns)}")
         return pd.DataFrame()
 
-    def fetch_fundamental(self, symbols: list) -> pd.DataFrame:
-        """Thử lấy dữ liệu cơ bản (PE, PB, EPS...) từ FiinQuant"""
-        if not self.client:
-            return pd.DataFrame()
-
-        results = []
-
-        # Thử các method có thể có trong FiinQuantX
-        for method_name in ['Fetch_Financial_Data', 'Fetch_Ratio_Data',
-                            'Fetch_Fundamental_Data', 'Fetch_Market_Data']:
-            method = getattr(self.client, method_name, None)
-            if method is None:
-                continue
-
-            print(f"   📊 Thử {method_name}...")
-
-            for symbol in symbols:
-                try:
-                    # Thử các cách gọi khác nhau
-                    data = None
-                    try:
-                        data = method(
-                            tickers=symbol,
-                            fields=['pe', 'pb', 'eps', 'roe', 'roa', 'market_cap',
-                                    'dividend_yield', 'debt_to_equity'],
-                            period=1,
-                            by='quarter',
-                        ).get_data()
-                    except Exception:
-                        try:
-                            data = method(
-                                tickers=symbol,
-                                period=1,
-                            ).get_data()
-                        except Exception:
-                            pass
-
-                    if data is not None and len(data) > 0:
-                        df = data if isinstance(data, pd.DataFrame) else pd.DataFrame(data)
-                        df['symbol'] = symbol
-                        results.append(df)
-
-                except Exception:
-                    continue
-
-            if results:
-                print(f"   ✅ {method_name}: Lấy được {len(results)} mã")
-                break
-
-        if results:
-            return pd.concat(results, ignore_index=True)
-        return pd.DataFrame()
-
 
 class VnStockFetcher:
-    """Lấy dữ liệu từ vnstock (fallback)"""
+    """Lấy dữ liệu từ vnstock (fallback price data only)"""
 
     def __init__(self, source: str = "VCI"):
         self.source = source
         self.vnstock = None
+        self._last_request_time = 0
 
         try:
             from vnstock import Vnstock
@@ -304,11 +298,20 @@ class VnStockFetcher:
         except Exception as e:
             print(f"⚠️ vnstock error: {e}")
 
+    def _throttle(self):
+        """vnstock Guest: 20 req/phút = 1 req mỗi 3.5s"""
+        now = time.time()
+        elapsed = now - self._last_request_time
+        if elapsed < 3.5:
+            time.sleep(3.5 - elapsed)
+        self._last_request_time = time.time()
+
     def get_price_history(self, symbol: str) -> pd.DataFrame:
         """Lấy giá 1 mã"""
         if not self.vnstock:
             return pd.DataFrame()
 
+        self._throttle()
         end_date = datetime.now().strftime('%Y-%m-%d')
 
         try:
@@ -319,31 +322,26 @@ class VnStockFetcher:
                 df['symbol'] = symbol
                 return df
             return pd.DataFrame()
-        except Exception:
+        except Exception as e:
+            if is_rate_limit_error(str(e)):
+                print(f"   ⏳ vnstock rate limit, chờ 60s...")
+                time.sleep(60)
+                # Retry 1 lần
+                try:
+                    stock = self.vnstock.stock(symbol=symbol, source=self.source)
+                    df = stock.quote.history(start=DATA_START_DATE, end=end_date)
+                    if df is not None and len(df) > 0:
+                        df['symbol'] = symbol
+                        return df
+                except Exception:
+                    pass
             return pd.DataFrame()
-
-    def get_finance_ratios(self, symbol: str) -> dict:
-        """Lấy chỉ số tài chính từ vnstock"""
-        if not self.vnstock:
-            return {}
-
-        try:
-            stock = self.vnstock.stock(symbol=symbol, source=self.source)
-            ratios = stock.finance.ratio(period='year')
-            if ratios is not None and len(ratios) > 0:
-                # Lấy dòng mới nhất
-                latest = ratios.iloc[-1].to_dict()
-                return latest
-        except Exception:
-            pass
-        return {}
 
 
 class DataFetcher:
     """Lấy dữ liệu chứng khoán Việt Nam - VN100 + HNX30"""
 
     # === DANH SÁCH CỐ ĐỊNH (fallback khi không lấy được động) ===
-    # VN100: 100 mã lớn nhất trên HOSE (VN30 + VNMidCap)
     VN100_SYMBOLS = [
         # VN30
         'ACB', 'BCM', 'BID', 'BVH', 'CTG', 'FPT', 'GAS', 'GVR', 'HDB', 'HPG',
@@ -359,7 +357,6 @@ class DataFetcher:
         'TLG', 'TNH', 'VCG', 'VCI', 'VGC', 'VHC', 'VND', 'VOS', 'VPI', 'VTP',
     ]
 
-    # HNX30: 30 mã lớn nhất trên HNX
     HNX30_SYMBOLS = [
         'BAB', 'BVS', 'CEO', 'DTD', 'HUT', 'IDC', 'L14', 'MBS', 'NDN', 'NRC',
         'NTP', 'PLC', 'PVB', 'PVI', 'PVS', 'S99', 'SHN', 'SHS', 'TDC', 'THD',
@@ -377,38 +374,34 @@ class DataFetcher:
             if not self.fiinquant.login():
                 self.fiinquant = None
 
-        # Nếu không có FiinQuant, dùng vnstock
+        # Fallback vnstock chỉ khi FiinQuant không dùng được
         if self.fiinquant is None:
-            print("📡 Sử dụng vnstock làm nguồn dữ liệu")
+            print("📡 Sử dụng vnstock làm nguồn dữ liệu (fallback)")
             fallback_source = "VCI" if self.source == "FIINQUANT" else self.source
             self.vnstock_fallback = VnStockFetcher(source=fallback_source)
 
     def get_symbols(self) -> list:
-        """Lấy danh sách VN100 + HNX30 (ưu tiên dynamic, fallback cố định)"""
+        """Lấy danh sách VN100 + HNX30"""
         print("📋 Lấy danh sách mã VN100 + HNX30...")
 
-        # 1. Thử lấy dynamic từ vnstock
         vn100, hnx30 = get_dynamic_symbols()
 
-        # 2. Nếu không được, thử cache
         if not vn100 and not hnx30:
             vn100, hnx30 = load_cached_symbols()
 
-        # 3. Fallback về danh sách cố định
         if not vn100:
             vn100 = self.VN100_SYMBOLS
-            print(f"   📋 VN100: {len(vn100)} mã (fallback cố định)")
+            print(f"   📋 VN100: {len(vn100)} mã (cố định)")
         if not hnx30:
             hnx30 = self.HNX30_SYMBOLS
-            print(f"   📋 HNX30: {len(hnx30)} mã (fallback cố định)")
+            print(f"   📋 HNX30: {len(hnx30)} mã (cố định)")
 
-        # Gộp và loại trùng
         all_symbols = list(dict.fromkeys(vn100 + hnx30))
-        print(f"   📊 Tổng: {len(all_symbols)} mã (VN100={len(vn100)} + HNX30={len(hnx30)})")
+        print(f"   📊 Tổng: {len(all_symbols)} mã")
         return all_symbols
 
-    def fetch_with_timeout(self, symbol: str, timeout_sec: int = 15) -> pd.DataFrame:
-        """Lấy data với timeout - tránh bị treo"""
+    def fetch_with_timeout(self, symbol: str, timeout_sec: int = 30) -> pd.DataFrame:
+        """Lấy data với timeout"""
         result = [pd.DataFrame()]
 
         def fetch():
@@ -426,7 +419,7 @@ class DataFetcher:
         thread.join(timeout=timeout_sec)
 
         if thread.is_alive():
-            print(f"   ⏰ {symbol}: TIMEOUT - Bỏ qua")
+            print(f"   ⏰ {symbol}: TIMEOUT")
             return pd.DataFrame()
 
         return result[0]
@@ -437,7 +430,7 @@ class DataFetcher:
 
         source_name = "FiinQuant" if self.fiinquant else "vnstock"
         print(f"\n📥 Lấy dữ liệu {len(symbols)} mã từ {source_name}...")
-        print(f"⏰ Timeout: 15s/mã | Max: 25 phút\n")
+        print(f"⏰ Rate limit: {FIINQUANT_DELAY}s/req | Timeout: 30s/mã\n")
 
         all_data = []
         ok = 0
@@ -445,13 +438,13 @@ class DataFetcher:
         t0 = time.time()
 
         for i, symbol in enumerate(symbols):
-            # Safety: max 25 phút (130 mã cần nhiều thời gian hơn)
+            # Safety: max 30 phút
             elapsed = time.time() - t0
-            if elapsed > 1500:
-                print(f"\n⚠️ QUÁ 25 PHÚT - Dừng ({ok} mã)")
+            if elapsed > 1800:
+                print(f"\n⚠️ QUÁ 30 PHÚT - Dừng ({ok} mã)")
                 break
 
-            df = self.fetch_with_timeout(symbol, timeout_sec=15)
+            df = self.fetch_with_timeout(symbol, timeout_sec=30)
 
             if not df.empty:
                 all_data.append(df)
@@ -461,14 +454,12 @@ class DataFetcher:
                 fail += 1
                 print(f"   [{i+1}/{len(symbols)}] ❌ {symbol}")
 
-                # Nếu quá nhiều lỗi với FiinQuant, chuyển sang vnstock
+                # Nếu FiinQuant lỗi quá nhiều, chuyển vnstock
                 if self.fiinquant and fail > 10 and ok == 0:
                     print("\n⚠️ FiinQuant lỗi quá nhiều, chuyển sang vnstock...")
                     self.fiinquant = None
                     self.vnstock_fallback = VnStockFetcher(source="VCI")
                     fail = 0
-
-            time.sleep(0.3)
 
         total = time.time() - t0
         print(f"\n{'='*50}")
@@ -480,48 +471,6 @@ class DataFetcher:
         if all_data:
             return pd.concat(all_data, ignore_index=True)
         return pd.DataFrame()
-
-    def fetch_fundamental_data(self, symbols: list = None):
-        """Lấy dữ liệu cơ bản (PE, PB, EPS...) và lưu file"""
-        if symbols is None:
-            symbols = self.get_symbols()
-
-        print(f"\n📊 Lấy dữ liệu cơ bản cho {len(symbols)} mã...")
-
-        fundamental_df = pd.DataFrame()
-
-        # Thử FiinQuant trước
-        if self.fiinquant:
-            fundamental_df = self.fiinquant.fetch_fundamental(symbols)
-
-        # Nếu FiinQuant không có, thử vnstock
-        if fundamental_df.empty and self.vnstock_fallback:
-            print("   📡 Thử lấy fundamental từ vnstock...")
-            results = []
-            for i, symbol in enumerate(symbols[:30]):  # Giới hạn 30 mã để không quá lâu
-                try:
-                    ratios = self.vnstock_fallback.get_finance_ratios(symbol)
-                    if ratios:
-                        ratios['symbol'] = symbol
-                        results.append(ratios)
-                        if (i + 1) % 10 == 0:
-                            print(f"   [{i+1}/{min(30, len(symbols))}] Đã lấy {len(results)} mã")
-                    time.sleep(0.5)
-                except Exception:
-                    continue
-
-            if results:
-                fundamental_df = pd.DataFrame(results)
-                print(f"   ✅ vnstock fundamental: {len(fundamental_df)} mã")
-
-        if not fundamental_df.empty:
-            os.makedirs(DATA_DIR, exist_ok=True)
-            fundamental_df.to_csv(FUNDAMENTAL_FILE, index=False)
-            print(f"   ✅ Saved: {FUNDAMENTAL_FILE}")
-        else:
-            print("   ⚠️ Không lấy được dữ liệu cơ bản")
-
-        return fundamental_df
 
     def save_data(self, df: pd.DataFrame):
         """Lưu file"""
@@ -546,11 +495,6 @@ class DataFetcher:
 
         if not df.empty:
             self.save_data(df)
-
-            # Thử lấy thêm fundamental data
-            symbols = df['symbol'].unique().tolist() if 'symbol' in df.columns else []
-            if symbols:
-                self.fetch_fundamental_data(symbols)
 
         return df
 
