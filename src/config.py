@@ -9,8 +9,6 @@ load_dotenv()
 
 # === API KEYS ===
 CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY", "").strip().replace("\n", "").replace("\r", "").replace(" ", "")
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "").strip().replace("\n", "").replace("\r", "")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "").strip().replace("\n", "").replace("\r", "")
 
 # FiinQuant
 FIINQUANT_USERNAME = os.getenv("FIINQUANT_USERNAME", "").strip()

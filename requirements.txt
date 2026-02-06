@@ -10,15 +10,9 @@ numpy>=1.24.0
 # AI
 anthropic>=0.18.0
 
-# Telegram
-python-telegram-bot>=20.0
-
-# Web scraping (tin tức)
+# Web scraping
 requests>=2.31.0
-beautifulsoup4>=4.12.0
-lxml>=4.9.0
 
 # Utilities
 python-dotenv>=1.0.0
 pytz>=2023.3
-aiohttp>=3.9.0
