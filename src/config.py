@@ -15,7 +15,7 @@ FIINQUANT_USERNAME = os.getenv("FIINQUANT_USERNAME", "").strip()
 FIINQUANT_PASSWORD = os.getenv("FIINQUANT_PASSWORD", "").strip()
 
 # === DATA SETTINGS ===
-TOP_STOCKS_COUNT = 300  # Số mã cổ phiếu cần lấy (top volume)
+TOP_STOCKS_COUNT = 130  # VN100 (100) + HNX30 (30)
 DATA_START_DATE = "2024-01-01"  # Ngày bắt đầu lấy dữ liệu
 DATA_SOURCE = "FIINQUANT"  # Nguồn dữ liệu: FIINQUANT (primary), VCI (fallback)
 
