@@ -339,7 +339,7 @@ class VnStockFetcher:
 
 
 class DataFetcher:
-    """Lấy dữ liệu chứng khoán Việt Nam - VN100 + HNX30"""
+    """Lấy dữ liệu chứng khoán Việt Nam - Top 300 mã theo volume"""
 
     # === DANH SÁCH CỐ ĐỊNH (fallback khi không lấy được động) ===
     VN100_SYMBOLS = [
@@ -363,6 +363,35 @@ class DataFetcher:
         'TIG', 'TNG', 'TVS', 'VC3', 'VCS', 'VGS', 'VIX', 'VLA', 'VMC', 'VNR',
     ]
 
+    # === MÃ BỔ SUNG để đạt ~300 (HOSE + HNX thanh khoản cao) ===
+    EXTRA_HOSE_SYMBOLS = [
+        'AAA', 'ABB', 'AGG', 'AGR', 'APG', 'BCG', 'BFC', 'BHN', 'BIC', 'BMI',
+        'BRC', 'BSI', 'BTS', 'BVB', 'CAV', 'CHP', 'CIG', 'CLC', 'CLW', 'CMX',
+        'CNG', 'COM', 'CRC', 'CRE', 'CSM', 'CSV', 'CTF', 'CTI', 'CTR', 'D2D',
+        'DAH', 'DAT', 'DBD', 'DHA', 'DHG', 'DLG', 'DMC', 'DPG', 'DPR', 'DRC',
+        'DRL', 'DSN', 'DTA', 'DTL', 'DVP', 'ELC', 'EMC', 'EVG', 'FDC', 'FIT',
+        'FMC', 'FOX', 'FTS', 'GDT', 'GIL', 'GLW', 'GSP', 'GTA', 'GTN', 'HAG',
+        'HAI', 'HAP', 'HAS', 'HAX', 'HBC', 'HCD', 'HCT', 'HDG', 'HHP', 'HHS',
+        'HID', 'HII', 'HLG', 'HMC', 'HNG', 'HOT', 'HPX', 'HQC', 'HRC', 'HSL',
+        'HTI', 'HTL', 'HTN', 'HTV', 'HU1', 'HUB', 'ICT', 'IJC', 'ILB', 'ITA',
+        'ITD', 'JVC', 'KHA', 'KHP', 'KMR', 'KPF', 'KSB', 'KSH', 'L10', 'LAF',
+        'LBM', 'LCD', 'LCG', 'LDG', 'LEC', 'LGC', 'LGL', 'LHG', 'LIX', 'LM8',
+        'LSS', 'MCP', 'MDG', 'MHC', 'NAF', 'NAV', 'NBB', 'NCT', 'NET', 'NHH',
+        'NNC', 'NTL', 'OPC', 'OGC', 'PAC', 'PBC', 'PDN', 'PET', 'PGD', 'PGI',
+        'PIT', 'PLP', 'PMG', 'POM', 'PTB', 'PTL', 'QBS', 'QCG', 'RAL', 'RDP',
+        'S4A', 'SAM', 'SBA', 'SBV', 'SC5', 'SCD', 'SCR', 'SGN', 'SGR', 'SGT',
+        'SHA', 'SHI', 'SMB', 'SMC', 'SPM', 'SRC', 'SRF', 'SSC', 'ST8', 'STK',
+        'SVD', 'SVT', 'SZL', 'TBC', 'TCL', 'TCM', 'TCO', 'TCR', 'TDH', 'TDM',
+    ]
+
+    EXTRA_HNX_SYMBOLS = [
+        'AMV', 'BCC', 'BDB', 'BKC', 'CAG', 'CIA', 'CPC', 'CVT', 'DAD',
+        'DAS', 'DHP', 'DNP', 'DS3', 'DTK', 'DTV', 'DVG', 'EVS', 'GKM',
+        'HBS', 'HGM', 'HKB', 'HLC', 'HLD', 'HMH', 'HNM', 'HOM', 'ICG',
+        'KMT', 'KSD', 'KTS', 'LAS', 'LCS', 'LHC', 'MAC', 'MBG', 'MCO',
+        'NBC', 'NHC', 'NHT', 'NSH', 'PHP', 'PMC', 'PMS', 'PPE', 'PSC',
+    ]
+
     def __init__(self):
         self.source = DATA_SOURCE
         self.fiinquant = None
@@ -380,10 +409,57 @@ class DataFetcher:
             fallback_source = "VCI" if self.source == "FIINQUANT" else self.source
             self.vnstock_fallback = VnStockFetcher(source=fallback_source)
 
-    def get_symbols(self) -> list:
-        """Lấy danh sách VN100 + HNX30"""
-        print("📋 Lấy danh sách mã VN100 + HNX30...")
+    def get_all_exchange_symbols(self) -> list:
+        """Lấy tất cả mã từ HOSE + HNX qua vnstock listing API"""
+        try:
+            from vnstock import Vnstock
+            vs = Vnstock()
+            stock = vs.stock(symbol='ACB', source='VCI')
 
+            all_symbols = []
+            for group in ['HOSE', 'HNX']:
+                try:
+                    data = stock.listing.symbols_by_exchange(group)
+                    if data is not None:
+                        if isinstance(data, pd.DataFrame):
+                            for col in ['symbol', 'ticker', 'code', 'Symbol', 'Ticker']:
+                                if col in data.columns:
+                                    all_symbols.extend(data[col].tolist())
+                                    break
+                            if not all_symbols and len(data.columns) > 0:
+                                all_symbols.extend(data.iloc[:, 0].tolist())
+                        elif isinstance(data, list):
+                            all_symbols.extend(data)
+                    print(f"   ✅ {group}: {len(all_symbols)} mã")
+                except Exception as e:
+                    print(f"   ⚠️ {group} listing failed: {e}")
+
+            return list(dict.fromkeys(all_symbols))
+        except Exception as e:
+            print(f"   ⚠️ Không lấy được danh sách sàn: {e}")
+            return []
+
+    def get_symbols(self) -> list:
+        """Lấy danh sách ~300 mã có vol lớn nhất (HOSE + HNX)"""
+        from src.config import TOP_STOCKS_COUNT
+        print(f"📋 Lấy danh sách top {TOP_STOCKS_COUNT} mã theo volume...")
+
+        # Bước 1: Thử lấy tất cả mã từ sàn
+        all_exchange = self.get_all_exchange_symbols()
+
+        if len(all_exchange) >= 200:
+            print(f"   📊 Lấy được {len(all_exchange)} mã từ sàn")
+            # Cache lại
+            cache = {
+                'all_symbols': [str(s) for s in all_exchange],
+                'updated': datetime.now().strftime('%Y-%m-%d %H:%M')
+            }
+            os.makedirs(DATA_DIR, exist_ok=True)
+            with open(SYMBOLS_CACHE_FILE, 'w') as f:
+                json.dump(cache, f, indent=2)
+            return all_exchange[:TOP_STOCKS_COUNT]
+
+        # Bước 2: Thử VN100 + HNX30 dynamic
         vn100, hnx30 = get_dynamic_symbols()
 
         if not vn100 and not hnx30:
@@ -396,7 +472,15 @@ class DataFetcher:
             hnx30 = self.HNX30_SYMBOLS
             print(f"   📋 HNX30: {len(hnx30)} mã (cố định)")
 
+        # Bước 3: Bổ sung thêm mã từ danh sách mở rộng để đạt ~300
         all_symbols = list(dict.fromkeys(vn100 + hnx30))
+
+        if len(all_symbols) < TOP_STOCKS_COUNT:
+            extra = [s for s in self.EXTRA_HOSE_SYMBOLS + self.EXTRA_HNX_SYMBOLS
+                     if s not in all_symbols]
+            need = TOP_STOCKS_COUNT - len(all_symbols)
+            all_symbols.extend(extra[:need])
+
         print(f"   📊 Tổng: {len(all_symbols)} mã")
         return all_symbols
 
@@ -486,7 +570,7 @@ class DataFetcher:
     def run(self) -> pd.DataFrame:
         """Chạy lấy dữ liệu"""
         print("=" * 60)
-        print("📥 BẮT ĐẦU LẤY DỮ LIỆU - VN100 + HNX30")
+        print("📥 BẮT ĐẦU LẤY DỮ LIỆU - TOP 300 MÃ THEO VOLUME")
         source_name = "FiinQuant" if self.fiinquant else "vnstock"
         print(f"📡 Nguồn: {source_name}")
         print("=" * 60)
