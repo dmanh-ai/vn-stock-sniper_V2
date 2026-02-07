@@ -61,10 +61,23 @@ class TCBSFetcher:
             resp.raise_for_status()
             data = resp.json()
 
+            # Debug: log response cho mã đầu tiên
+            if self._request_count <= 2:
+                keys = list(data.keys()) if isinstance(data, dict) else type(data).__name__
+                print(f"   🔍 DEBUG {symbol}: response keys={keys}")
+                if isinstance(data, dict) and 'data' in data and data['data']:
+                    sample = data['data'][0] if isinstance(data['data'], list) else data['data']
+                    print(f"   🔍 DEBUG {symbol}: first record keys={list(sample.keys()) if isinstance(sample, dict) else 'N/A'}")
+
             if not data or 'data' not in data or not data['data']:
+                if self._request_count <= 5:
+                    print(f"   ⚠️ {symbol}: no data field. Response: {str(data)[:200]}")
                 return pd.DataFrame()
 
             df = pd.DataFrame(data['data'])
+
+            if self._request_count <= 2:
+                print(f"   🔍 DEBUG {symbol}: columns={list(df.columns)}")
 
             # Chuẩn hóa columns
             col_map = {}
@@ -95,15 +108,20 @@ class TCBSFetcher:
             if all(c in df.columns for c in required):
                 return df[required]
 
+            print(f"   ⚠️ {symbol}: missing required columns. Have: {list(df.columns)}")
             return pd.DataFrame()
 
         except requests.exceptions.HTTPError as e:
+            if self._request_count <= 5:
+                print(f"   ❗ {symbol}: HTTP {e.response.status_code if e.response else '?'} - {e}")
             if e.response is not None and e.response.status_code == 429:
                 print(f"   ⏳ Rate limit! Chờ 30s...")
                 time.sleep(30)
                 return self.get_price_history(symbol, days)
             return pd.DataFrame()
-        except Exception:
+        except Exception as e:
+            if self._request_count <= 5:
+                print(f"   ❗ {symbol}: {type(e).__name__}: {e}")
             return pd.DataFrame()
 
 
