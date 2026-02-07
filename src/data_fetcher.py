@@ -1,11 +1,12 @@
 """
-VN Stock Sniper - Data Fetcher V6
+VN Stock Sniper - Data Fetcher V7
 Universe: Top ~300 mã theo volume (HOSE + HNX)
 Source: FiinQuantX ONLY (fiinquant.vn)
 
-Rate limits FiinQuantX (free):
-  - 90 requests/phút, 80 requests/giây
-  - Max 33 mã/lần (lịch sử), period tối đa 1 năm
+FiinQuant Free Tier Limits:
+  - 100,000 requests/tháng, 90 req/phút, 80 req/giây
+  - Lịch sử: 1D timeframe, 1 năm history
+  - Real-time: max 33 mã/lần (không dùng)
 """
 
 import pandas as pd
@@ -225,7 +226,7 @@ class FiinQuantFetcher:
 class DataFetcher:
     """Lấy dữ liệu chứng khoán Việt Nam - Top 300 mã - FiinQuant ONLY"""
 
-    # === DANH SÁCH CỐ ĐỊNH (fallback khi không lấy được động) ===
+    # === DANH SÁCH CỐ ĐỊNH ===
     VN100_SYMBOLS = [
         # VN30
         'ACB', 'BCM', 'BID', 'BVH', 'CTG', 'FPT', 'GAS', 'GVR', 'HDB', 'HPG',
@@ -247,7 +248,7 @@ class DataFetcher:
         'TIG', 'TNG', 'TVS', 'VC3', 'VCS', 'VGS', 'VIX', 'VLA', 'VMC', 'VNR',
     ]
 
-    # === MÃ BỔ SUNG để đạt ~300 (HOSE + HNX thanh khoản cao) ===
+    # === MÃ BỔ SUNG để đạt ~300 ===
     EXTRA_HOSE_SYMBOLS = [
         'AAA', 'ABB', 'AGG', 'AGR', 'APG', 'BCG', 'BFC', 'BHN', 'BIC', 'BMI',
         'BRC', 'BSI', 'BTS', 'BVB', 'CAV', 'CHP', 'CIG', 'CLC', 'CLW', 'CMX',
@@ -285,10 +286,9 @@ class DataFetcher:
             self.fiinquant = FiinQuantFetcher(FIINQUANT_USERNAME, FIINQUANT_PASSWORD)
             if not self.fiinquant.login():
                 self.fiinquant = None
-                print("❌ FiinQuant login thất bại. Không có nguồn dữ liệu!")
+                print("❌ FiinQuant login thất bại!")
         else:
             print("❌ Thiếu FIINQUANT_USERNAME / FIINQUANT_PASSWORD trong .env")
-            print("   Vui lòng cấu hình FiinQuant credentials.")
 
     def get_symbols(self) -> list:
         """Lấy danh sách ~300 mã (HOSE + HNX)"""
