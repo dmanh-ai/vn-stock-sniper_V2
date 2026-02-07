@@ -15,7 +15,7 @@ FIINQUANT_USERNAME = os.getenv("FIINQUANT_USERNAME", "").strip()
 FIINQUANT_PASSWORD = os.getenv("FIINQUANT_PASSWORD", "").strip()
 
 # === DATA SETTINGS ===
-TOP_STOCKS_COUNT = 33  # Max 33 mã (FiinQuant free tier limit)
+TOP_STOCKS_COUNT = 300  # Top 300 mã theo volume (HOSE + HNX)
 DATA_START_DATE = "2024-01-01"  # Ngày bắt đầu lấy dữ liệu
 DATA_SOURCE = "FIINQUANT"  # Nguồn dữ liệu: FIINQUANT ONLY
 
