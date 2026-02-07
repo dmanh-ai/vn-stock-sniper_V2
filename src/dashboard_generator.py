@@ -671,7 +671,7 @@ function renderTechnical(){{
             <span class="bdg bdg-${{stars>=4?'g':stars>=3?'a':'r'}}">${{stars}}★</span>
           </div>
           <div class="big-num ${{clr(chg)}}" style="font-size:28px">${{fmt(s.close)}}</div>
-          <div class="label">${{up?'+':''}}\${{chg.toFixed(2)}}% • Vol: ${{((s.volume||0)/1e6).toFixed(1)}}M • Score: ${{score}}/40</div>
+          <div class="label">${{up?'+':''}}${{chg.toFixed(2)}}% • Vol: ${{((s.volume||0)/1e6).toFixed(1)}}M • Score: ${{score}}/40</div>
         </div>
         <div style="text-align:right">
           <div class="label">ATR%</div>
@@ -855,7 +855,7 @@ function renderSector(){{
       const up=s.chg>=0;
       return`<div class="hm-cell" style="background:${{hc(s.chg)}}">
         <div class="hm-name">${{s.name}}</div>
-        <div class="hm-val ${{up?'up':'dn'}}">${{up?'+':''}}\${{s.chg}}%</div>
+        <div class="hm-val ${{up?'up':'dn'}}">${{up?'+':''}}${{s.chg}}%</div>
         <div class="hm-sub">${{s.count}} CP • Score ${{s.avgScore}}</div>
       </div>`;
     }}).join('')}}</div>
@@ -869,7 +869,7 @@ function renderSector(){{
         return`<div class="sbar-h">
           <div class="sbar-name">${{s.name}}</div>
           <div class="sbar-track">${{up?`<div class="sbar-fill" style="width:${{w}}%;background:var(--g)"></div>`:`<div class="sbar-fill" style="width:${{w}}%;background:var(--r);margin-left:auto"></div>`}}</div>
-          <div class="sbar-pct ${{up?'up':'dn'}}">${{up?'+':''}}\${{s.chg}}%</div>
+          <div class="sbar-pct ${{up?'up':'dn'}}">${{up?'+':''}}${{s.chg}}%</div>
         </div>`;
       }}).join('')}}
     </div>
@@ -1284,7 +1284,7 @@ function renderPortfolio(){{
     </div>
     <div class="cd cd-sm fade-in d2" style="text-align:center">
       <div class="cd-title">Lãi / Lỗ</div>
-      <div class="big-num ${{totalPnl>=0?'up':'dn'}}">${{totalPnl>=0?'+':''}}\${{(totalPnl/1e6).toFixed(1)}}M</div>
+      <div class="big-num ${{totalPnl>=0?'up':'dn'}}">${{totalPnl>=0?'+':''}}${{(totalPnl/1e6).toFixed(1)}}M</div>
     </div>
     <div class="cd cd-sm fade-in d3" style="text-align:center">
       <div class="cd-title">Số vị thế</div>
@@ -1308,7 +1308,7 @@ function renderPortfolio(){{
         <span class="xs-num" style="color:var(--t2)">${{fmt(entry)}}</span>
         <span class="xs-num ${{up?'up':'dn'}}">${{fmt(cur)}}</span>
         <span class="xs-num" style="color:var(--t2)">${{fmt(qty)}}</span>
-        <span class="xs-num ${{up?'up':'dn'}}">${{up?'+':''}}\${{pnlPct.toFixed(1)}}%</span>
+        <span class="xs-num ${{up?'up':'dn'}}">${{up?'+':''}}${{pnlPct.toFixed(1)}}%</span>
         <span class="xs-num" style="color:var(--t2)">${{(value/1e6).toFixed(1)}}M</span>
       </div>`;
     }}).join('')}}
@@ -1334,8 +1334,8 @@ function renderAI(){{
     .replace(/^### (.+)$/gm,'<h3>$1</h3>')
     .replace(/^## (.+)$/gm,'<h2>$1</h2>')
     .replace(/^# (.+)$/gm,'<h1>$1</h1>')
-    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g,'<em>$1</em>')
+    .replace(/\\*\\*(.+?)\\*\\*/g,'<strong>$1</strong>')
+    .replace(/\\*(.+?)\\*/g,'<em>$1</em>')
     .replace(/^- (.+)$/gm,'• $1');
 
   return`
