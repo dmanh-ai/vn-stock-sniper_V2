@@ -143,7 +143,7 @@ canvas{display:block;width:100%;border-radius:6px}
   <nav class="sidebar">
     <div class="sb-logo"><h1>VN SNIPER</h1><span>Market Analytics v8</span></div>
     <div class="sb-nav" id="nav"></div>
-    <div class="sb-ft">VN Stock Sniper<br>07/02/2026 15:18 • FiinQuant</div>
+    <div class="sb-ft">VN Stock Sniper<br>07/02/2026 22:35 • FiinQuant</div>
   </nav>
   <div class="main">
     <header class="hdr">
@@ -160,7 +160,7 @@ canvas{display:block;width:100%;border-radius:6px}
     <div class="sbar">
       <div class="si"><div class="dot" style="background:var(--g)"></div>Data <b>FiinQuant</b></div>
       <div class="si"><div class="dot" style="background:var(--b)"></div>Stocks <b id="stockCount">--</b></div>
-      <div class="si"><div class="dot" style="background:var(--a)"></div>Updated <b>07/02/2026 15:18</b></div>
+      <div class="si"><div class="dot" style="background:var(--a)"></div>Updated <b>07/02/2026 22:35</b></div>
       <div class="si" style="margin-left:auto">Modules <b>11/11 Active</b></div>
     </div>
   </div>
@@ -175,258 +175,315 @@ const ALL_SIGNALS = [{"time": "2026-02-06 02:00:00", "open": 36200.0, "high": 36
 const STATS = {"total": 291, "uptrend": 125, "sideways": 37, "downtrend": 129, "buy_strong": 4, "buy": 0, "neutral": 113, "sell": 135, "sell_strong": 39, "avg_rsi": 42.5, "avg_mfi": 47.5, "avg_score": 11.1, "vol_surge_count": 33, "bb_squeeze_count": 83, "advance": 71, "decline": 180, "unchanged": 40};
 const POSITIONS = [];
 const AI_REPORT = `# BÁO CÁO PHÂN TÍCH THỊ TRƯỜNG CHỨNG KHOÁN VIỆT NAM
-## Ngày 07/02/2026
+**Ngày: 07/02/2026**
 
 ---
 
 ## 1. TỔNG QUAN THỊ TRƯỜNG
 
-### Thị trường đang ở trạng thái PHÂN HOÁ MẠNH - XU HƯỚNG TRUNG TÍNH
+### Xu hướng chủ đạo: **THỊ TRƯỜNG ĐANG PHÂN HOÁ MẠNH - XU HƯỚNG YẾU**
 
-**Xu hướng chủ đạo**: Thị trường cho thấy sự phân hóa rõ rệt với tỷ lệ Uptrend 43% (125 mã) và Downtrend 44% (129 mã) gần như ngang bằng, trong khi Sideway chỉ chiếm 13% (37 mã). Đây là dấu hiệu của giai đoạn **"tug-of-war"** - lực mua và lực bán đang tranh giành nhau, chưa có xu hướng thống trị rõ ràng.
+Dữ liệu market breadth cho thấy một bức tranh **KHÔNG LẠC QUAN**:
 
-**Dòng tiền**: 
-- MFI trung bình **47.5** (dưới ngưỡng 50) → Dòng tiền đang **RÚT RA nhẹ** khỏi thị trường
-- Chỉ có **33/291 mã** (11.3%) có Volume Surge > 1.5x → Thanh khoản yếu, thiếu sự tham gia tích cực
-- Điểm đáng lo: dòng tiền rút ra trong khi vẫn có 125 mã uptrend, cho thấy momentum đang mỏng dần
+- **Cân bằng lực lượng**: Thị trường đang trong trạng thái phân hóa nghiêm trọng với tỷ lệ uptrend/downtrend gần như **ngang bằng** (43% XANH vs 44% ĐỎ), chỉ có 13% đang sideway. Đây là dấu hiệu của một thị trường **mất phương hướng rõ ràng**, không có xu hướng chủ đạo.
 
-**Động lực**:
-- MACD Bullish: 127/291 (43.6%) vs Bearish: 164/291 (56.4%) → **ÁP LỰC BÁN ĐANG CHIẾM ƯU THẾ**
-- MA Alignment (MA5>MA10>MA20>MA50): chỉ **80/291 mã** (27.5%) → Xu hướng ngắn hạn CHƯA MẠNH
-- Trên MA200: 120/291 (41.2%) → Xu hướng dài hạn vẫn còn, nhưng không áp đảo
-- RSI trung bình **42.5** → Thị trường đang nghiêng về vùng BEARISH
+- **Dòng tiền YẾU**: 
+  - MFI trung bình **47.5 điểm** (dưới ngưỡng 50) → dòng tiền đang RÚT RA khỏi thị trường
+  - RSI trung bình **42.5 điểm** → Áp lực bán đang chiếm ưu thế
+  - Chỉ có 33/291 mã có volume surge (11.3%) → Thiếu sự hứng thú mua vào rõ rệt
+  - **52 mã đang quá bán** (RSI<30) so với chỉ **5 mã quá mua** → Áp lực bán đổ dồn
 
-**Rủi ro hệ thống**:
-- Quá mua (RSI>70): chỉ **5 mã** → Áp lực chốt lời THẤP (tích cực)
-- Quá bán (RSI<30): **52 mã** (17.9%) → Có nhiều mã đã bị bán quá mức, tiềm năng short-squeeze
-- BB Squeeze: **83 mã** (28.5%) → Gần 1/3 thị trường đang trong trạng thái biến động thấp, SẮP CÓ BIẾN ĐỘNG LỚN (nhưng chưa rõ hướng)
+- **Động lực SUY YẾU**:
+  - MACD bearish chiếm **164/291 mã (56%)** > MACD bullish (127 mã) → Momentum đang đi xuống
+  - Chỉ **80/291 mã (27.5%)** có MA alignment hoàn hảo → Thiếu xu hướng rõ ràng
+  - **120/291 mã (41%)** trên MA200 → Hơn một nửa thị trường đã mất cấu trúc dài hạn
 
-**Chất lượng cổ phiếu**:
-- Chỉ có **4 mã 5 sao** và **35 mã 4 sao** trong 291 mã → Chất lượng tổng thể THẤP, ít cơ hội chất lượng cao
+- **Rủi ro biến động**:
+  - **83 mã đang BB Squeeze** (28.5%) → Biến động thấp bất thường, có thể bùng nổ về cả HAI CHIỀU (tăng HOẶC giảm)
+  - 5 mã quá mua → Rủi ro chốt lời cục bộ thấp
 
-### 🎯 Kết luận: Thị trường đang trong trạng thái **TRUNG TÍNH THIÊN YẾU**, dòng tiền suy yếu, động lực mỏng, chưa có xu hướng rõ ràng. Đây là giai đoạn NÊN THẬN TRỌNG, ưu tiên BẢO TOÀN VỐN hơn là săn lùng lợi nhuận.
+### 🔴 Kết luận: 
+**Thị trường đang trong giai đoạn TÍCH LŨY/PHÂN PHỐI với xu thế nghiêng về yếu. Dòng tiền suy yếu và thiếu động lực rõ ràng. Đây KHÔNG PHẢI là môi trường lý tưởng để tích cực giao dịch.**
 
 ---
 
 ## 2. PHÂN TÍCH CƠ HỘI ĐẦU TƯ
 
-### ⚠️ ĐÁNH GIÁ CHUNG: Chất lượng tín hiệu YẾU - Nên thận trọng
+### ⚠️ NHẬN ĐỊNH CHUNG VỀ CƠ HỘI:
 
-Trong 15 tín hiệu mua được hệ thống phát hiện, phần lớn là tín hiệu PULLBACK (9/15) trong xu hướng tăng đang suy yếu. Chỉ có 2 tín hiệu MOMENTUM đáng chú ý, và trong đó chỉ có **1 mã (SZC)** có chất lượng đủ tốt để xem xét.
+Trong 15 tín hiệu mua được hệ thống phát ra, phần lớn là **tín hiệu PULLBACK** (9/15 mã) trong kênh uptrend nhưng đang điều chỉnh. Điều này phản ánh **xu hướng thiếu động lực**. Chỉ có **3 tín hiệu MOMENTUM thực sự**, nhưng cần đánh giá kỹ độ tin cậy.
 
----
-
-### **SZC - MOMENTUM** ⭐⭐⭐⭐⭐ [CHẤT LƯỢNG CAO NHẤT]
-
-**Điểm mạnh**:
-- **MA Alignment hoàn hảo** (MA5>MA10>MA20>MA50) + trên MA200 → Xu hướng tăng đa khung thời gian
-- **Dòng tiền mạnh**: MFI 72.01, Volume Surge 2.12x → Dòng tiền tích cực đổ vào
-- **Vị thế giá tốt**: BB%=83.04 (gần đỉnh band nhưng chưa quá mua), Stoch K=68.24, RSI=57.87 → Trong vùng mua lành mạnh
-- **Channel Position = 81.45%** → Đang ở vùng trên của kênh tăng, có momentum tốt
-- **Linear Regression Slope = +0.21%/ngày** → Xu hướng tăng ổn định
-
-**Điểm yếu / Rủi ro**:
-- **Giá gần kháng cự 37,400** (chỉ còn cách 6.7%) → Rủi ro bị chặn lại cao
-- **ATR% = 3.84%** cao → Biến động lớn, có thể pullback mạnh
-- **MACD chưa tăng tốc** (macd_accelerating = false) → Momentum chưa bùng nổ hoàn toàn
-- **Bối cảnh thị trường yếu** (MFI thị trường 47.5) → Thiếu lực đỡ từ thị trường chung
-
-**Độ tin cậy tín hiệu**: **TRUNG BÌNH - CAO**  
-Tín hiệu kỹ thuật tốt, nhưng bị hạn chế bởi vị thế giá gần kháng cự và bối cảnh thị trường yếu.
-
-**Chiến lược vào lệnh**:
-- **Entry**: 34,700-35,000 (chờ pullback nhẹ từ giá 35,050)
-- **Stop Loss**: 33,000 (dưới MA20 và support 30,000) → **-5.4% từ entry 34,850**
-- **Target 1**: 37,000 (ngay trước resistance) → **+6.2%**
-- **Target 2**: 38,500 (breakout resistance) → **+10.5%**
-- **Risk/Reward T1**: 1:1.15 (KHÔNG TỐT)
-- **Risk/Reward T2**: 1:1.94 (CHẤP NHẬN ĐƯỢC)
-
-**Position size đề xuất**: **5-7% NAV** (không nên quá 10% do R/R T1 không tốt)
-
-**Kế hoạch điều chỉnh**:
-- Nếu vào được < 34,800 và lên nhanh qua 37,000 → chốt 50% và dời SL lên 35,500 (hòa vốn)
-- Nếu bị reject tại 37,000 → chốt toàn bộ, không chờ SL
+### PHÂN TÍCH CHI TIẾT CÁC CƠ HỘI ĐÁNG QUAN TÂM:
 
 ---
 
-### **CLC - MOMENTUM** ⭐⭐⭐⭐⭐ [CÓ BREAKOUT NHƯNG QUALITY THẤP]
+### **SZC - MOMENTUM** ⭐⭐⭐⭐⭐
 
-**Điểm mạnh**:
-- **BREAKOUT cả MA20 và MA50** → Tín hiệu kỹ thuật mạnh
-- **MACD Bullish + Accelerating** → Động lực đang tăng tốc
-- **MFI = 84.36** cực cao → Dòng tiền đổ vào mạnh
-- **Stoch K = 100, D = 73.45** → Momentum đang bùng nổ
-- **BB% = 111.67** (breakout khỏi Bollinger Band) → Tín hiệu mạnh
+**Điểm mạnh:**
+- **Dòng tiền mạnh**: MFI 72.01 + volume surge 2.12x → Tiền đang đổ vào tích cực
+- **Vị trí kênh tốt**: Đang ở 81.4% kênh tăng + BB percent 83% → Gần kháng cự nhưng vẫn trong xu hướng
+- **Cấu trúc kỹ thuật tốt**: MA aligned + trên cả MA200/MA50/MA20, MACD bullish
+- **Momentum mạnh**: Stoch K 68.24 đang vượt D 84.68 (dù D cao), RSI 57.87 còn khá khỏe
 
-**Điểm yếu / Rủi ro**:
-- **Quality Score chỉ 13/20** (thấp) → Chất lượng cơ bản yếu
-- **Volume Ratio = 0.396** (thấp bất thường cho 1 breakout) → Thiếu confirmation từ volume, rất nghi ngờ
-- **Giá ĐÃ Ở ĐỈNH 58,600** = resistance → Không còn upside ngắn hạn
-- **RSI = 65.64** + Stoch = 100 → Gần vùng quá mua, rủi ro chốt lời cao
-- **Không còn support rõ ràng gần** (support xa ở 51,990)
+**Điểm yếu / Rủi ro:**
+- **Gần kháng cực**: Resistance 37,400 chỉ còn cách 6.7%, nguy cơ chốt lời kỹ thuật
+- **BB percent cao**: 83% → Đã kéo dài khá xa, có thể pullback về TB
+- **Stoch D quá cao**: 84.68 → Đã có dấu hiệu mỏi
 
-**Độ tin cậy tín hiệu**: **THẤP**  
-Tín hiệu breakout đẹp, nhưng volume yếu + đã chạm resistance + quality thấp → Đây có thể là BULL TRAP.
+**Độ tin cậy tín hiệu: TRUNG BÌNH - CAO**
+- Tín hiệu kỹ thuật tốt nhưng đến cuối sóng, cần timing chính xác
 
-**❌ KHUYẾN NGHỊ: KHÔNG VÀO LỆNH**  
-Nếu đã vào trước đó → chốt lời ngay ở 58,000-58,600, không chờ thêm.
+**Chiến lược vào lệnh:**
+- **Entry**: 34,800-35,000 (chờ pullback nhẹ hoặc breakout xác nhận qua 35,500)
+- **Stop Loss**: 33,300 (-4.5% từ 35,000) - dưới support 30,000 và MA20
+- **Target 1**: 37,000 (+5.7%) - test kháng cự
+- **Target 2**: 39,500 (+12.9%) - nếu breakout thành công
+- **Risk/Reward**: 1:1.3 (T1), 1:2.9 (T2)
+- **Trailing stop**: Khi đạt T1, dời SL lên 34,000 (entry)
+
+**Position size đề xuất: 3-5% NAV** (do rủi ro vị trí cao trong kênh)
 
 ---
 
-### **CÁC TÍN HIỆU PULLBACK: CHẤT LƯỢNG YẾU**
+### **CLC - MOMENTUM (Breakout)** ⭐⭐⭐⭐⭐
 
-Có 9 tín hiệu PULLBACK trong danh sách (DPR, PVB, PNJ, POW, DBC, CNG, VCB, CTG, VCI...), nhưng:
+**Điểm mạnh:**
+- **Breakout mạnh**: Vượt cả kháng cự 20 ngày VÀ 50 ngày, BB percent 111.67% → Đang nằm ngoài dải trên
+- **MACD tăng tốc**: MACD bullish + accelerating → Động lực đang tăng
+- **MFI cực mạnh**: 84.36 → Dòng tiền đổ vào mạnh mẽ
+- **RSI khỏe**: 65.64 → Vùng bullish nhưng chưa quá mua nguy hiểm
+- **Stoch breakout**: K 99.99 → Momentum đỉnh
 
-**Vấn đề chung**:
-1. **RSI quá thấp** (VCB=28.4, CTG=31.2, PET=39.9) → Pullback quá sâu, có thể chuyển thành downtrend
-2. **MACD đã chuyển Bearish** → Momentum ngắn hạn âm
-3. **Chưa có xác nhận đảo chiều** (MA chưa align, Stoch vẫn thấp)
-4. **BB Squeeze nhiều mã** → Biến động thấp, pullback có thể kéo dài
+**Điểm yếu / Rủi ro:**
+- **Volume YẾU**: Chỉ 0.39x so với TB → Breakout KHÔNG có volume xác nhận → Nguy cơ false breakout CỰC CAO
+- **Đã ở đỉnh**: Close 58,600 = resistance, không còn khoảng cách phát triển
+- **BB ngoài dải**: Thường sẽ quay về
+- **Stoch quá mua cực đoan**: K/D đều ở mức cực cao
 
-**Đặc biệt nguy hiểm**:
-- **VCB**: RSI=28.4, BB%=-14.1 (phá MA20 xuống sâu), Stoch=1.8 → Đây là BREAKDOWN chứ không phải pullback lành mạnh
-- **CTG**: RSI=31.2, BB%=4.4, Stoch=0 → Tương tự VCB, đang trong downtrend ngắn hạn
+**Độ tin cậy tín hiệu: THẤP** ❌
+- Breakout không có volume = tín hiệu giả cao
 
-### ✅ KHUYẾN NGHỊ TỔNG THỂ:
+**Chiến lược vào lệnh:**
+🚫 **KHÔNG NÊN VÀO** - Breakout thiếu volume là bẫy kinh điển. Nếu bắt buộc phải giao dịch:
+- **Entry**: CHỜ pullback về 56,000-56,500 (giữa BB và test lại breakout)
+- **Stop Loss**: 54,500 (-3.6%) 
+- **Target 1**: 59,500 (+5.5%)
+- **Risk/Reward**: 1:1.5
 
-**HÔM NAY KHÔNG NÊN MỞ VỊ THẾ MỚI**, trừ khi:
-- SZC pullback về 34,700-34,900 VỚI volume confirmation → Có thể vào 5% NAV với SL chặt
-- Còn lại: **GIỮ 100% TIỀN MẶT**, chờ tín hiệu rõ ràng hơn
+**Position size đề xuất: 0-2% NAV** (chỉ cho trader kinh nghiệm)
 
-**Lý do**: 
-1. Thị trường phân hóa, dòng tiền yếu
-2. Tín hiệu momentum chỉ có 1-2 mã chất lượng, và đã gần kháng cự
-3. Tín hiệu pullback chưa xác nhận đảo chiều
-4. R/R không hấp dẫn ở vị thế hiện tại
+---
+
+### **TVS - MOMENTUM** ⭐⭐⭐⭐⭐
+
+**Điểm mạnh:**
+- **MACD tăng tốc**: Duy nhất trong top có MACD accelerating → Đà tăng đang mạnh lên
+- **Volume tốt**: 1.73x + có volume surge → Có xác nhận dòng tiền
+- **Vị trí tốt**: BB percent 73%, channel position 69.8% → Chưa quá kéo dài
+- **Stoch mạnh**: K 76.92, D 82.05 → Còn vùng phát triển
+
+**Điểm yếu / Rủi ro:**
+- **Không có MA aligned**: Thiếu cấu trúc hoàn hảo
+- **Chưa trên MA200**: Chưa phục hồi cấu trúc dài hạn
+- **Quality thấp hơn**: 13 điểm quality score
+- **Kháng cự gần**: 15,650 chỉ còn 4.3%
+
+**Độ tin cậy tín hiệu: TRUNG BÌNH**
+- Momentum tốt nhưng thiếu nền tảng dài hạn
+
+**Chiến lược vào lệnh:**
+- **Entry**: 14,900-15,000 (chờ pullback hoặc entry ngay)
+- **Stop Loss**: 14,300 (-4.7%) - dưới support 14,000
+- **Target 1**: 15,600 (+4%) - test kháng cự
+- **Target 2**: 16,500 (+10%) - nếu breakout
+- **Risk/Reward**: 1:0.85 (T1), 1:2.1 (T2)
+
+**Position size đề xuất: 3-4% NAV**
+
+---
+
+### **MWG - TOP SCORE** ⭐⭐⭐⭐
+
+**Điểm mạnh:**
+- **Quality cao nhất**: 18/24 điểm, 4 sao
+- **Cấu trúc hoàn hảo**: MA aligned + trên cả MA200/50/20
+- **Dòng tiền khỏe**: MFI 62.5 + volume surge 1.62x
+- **Large cap ổn định**: Biến động thấp (ATR 2.76%)
+
+**Điểm yếu / Rủi ro:**
+- **KHÔNG CÓ tín hiệu mua** → Hệ thống không phát tín hiệu
+- **Stoch yếu**: K 42.85 < D 59.44 → Đang điều chỉnh
+- **MACD không tăng tốc**: Thiếu catalyst
+- **Gần giữa kênh**: Channel position 38.6% → Không có lợi thế vị trí
+
+**Độ tin cậy: KHÔNG CÓ TÍN HIỆU**
+- Mặc dù chất lượng tốt nhưng thiếu timing
+
+**Khuyến nghị: ĐƯA VÀO WATCHLIST** - Chờ pullback về 85,000-86,000 (gần support 83,800) hoặc breakout qua 90,000
+
+---
+
+### **ĐÁNH GIÁ CÁC TÍN HIỆU PULLBACK:**
+
+Các mã **VCB, CTG, PNJ, POW, PVB, DPR, DBC, CNG, VCI, PET, ORS, SCS** đều có tín hiệu PULLBACK, nhưng:
+
+⚠️ **KHÔNG NÊN VÀO** vì:
+1. **Thị trường yếu tổng thể** (market breadth xấu)
+2. **Pullback trong môi trường downtrend tiềm ẩn** → Có thể là sóng hồi phục của xu hướng giảm
+3. **Các mã này đều có MACD bearish** → Chưa có xác nhận đảo chiều
+4. **RSI thấp** (VCB 28.4, CTG 31.1) → Có thể còn giảm sâu hơn (falling knife)
+5. **BB Squeeze cao** → Có thể bùng nổ về cả hai chiều
+
+**Ngoại lệ duy nhất đáng xem xét: PNJ**
+- Quality tốt (16/20), volume surge 1.78x
+- Nhưng cần CHỜ xác nhận MACD chuyển bullish
+- Entry chỉ khi MACD cắt lên + RSI > 45
+
+---
+
+### 🎯 KẾT LUẬN CƠ HỘI ĐẦU TƯ:
+
+**HÔM NAY CHỈ CÓ 1-2 CƠ HỘI ĐỦ MẠNH:**
+1. **SZC** (độ ưu tiên cao nhất - nhưng timing khó)
+2. **TVS** (thay thế khả thi hơn)
+
+**TRÁNH:** CLC (false breakout risk), các tín hiệu pullback trong market yếu
+
+**KHUYẾN NGHỊ CHUNG: GIỮ 70-80% TIỀN MẶT** - Chờ thị trường xác nhận rõ hơn
 
 ---
 
 ## 3. CẢNH BÁO RỦI RO
 
-### **Mã quá mua (RSI > 70): 5 mã**
-Tuy chỉ có 5 mã, nhưng cần lưu ý **CLC** (RSI=65.64, Stoch=100) đang ở trạng thái cực đoan, có thể sẽ nhanh chóng vào vùng quá mua nếu tăng thêm. Áp lực chốt lời ngắn hạn là có thật.
+### 🔴 Mã quá mua (RSI > 70): 
+**Chỉ có 5 mã** - Rủi ro cục bộ thấp, nhưng cần kiểm tra:
+- Không có mã nào trong top 10 → Không phải mối lo ngại chính
 
-### **Mã có tín hiệu bán: 10 mã - CẦN TRÁNH**
+### 🔴 Mã có tín hiệu bán - CẢNH BÁO NGHIÊM TRỌNG:
 
-**1. VCB (65,100) - BREAKDOWN nguy hiểm** ⚠️⚠️⚠️
-- RSI=28.4 (quá bán nghiêm trọng)
-- BB%=-14.1 (phá band dưới sâu)
-- MACD Bearish, không còn MA alignment
-- **Đây KHÔNG PHẢI cơ hội mua đáy**, mà là giai đoạn downtrend ngắn hạn. Support tiếp theo xa ở ~62,000
+**VCB (65,100) - BREAKDOWN** ⚠️⚠️⚠️
+- **RSI cực yếu 28.4** (quá bán nhưng chưa tạo đáy)
+- **BB percent -14%** → Đang ở dưới dải dưới rất xa
+- **MACD bearish** + Stoch K 1.81 (cực yếu)
+- **Rủi ro**: Là mã trụ, có thể kéo cả thị trường. Nếu thủng 64,900 → test 62,000
 
-**2. CTG (37,400) - BREAKDOWN** ⚠️⚠️
-- RSI=31.2, Stoch=0
-- Đã phá MA20, đang test support 37,400
-- Nếu mất 37,400 → xuống 35,000-36,000
+**CTG (37,400) - BREAKDOWN** ⚠️⚠️
+- **RSI 31.15**, Stoch K = 0 → Đang free fall
+- MACD bearish, BB percent chỉ 4.4%
+- **Rủi ro**: Cổ phiếu ngân hàng yếu → Phản ánh tâm lý risk-off
 
-**3. CNG (25,250) - BREAKDOWN** ⚠️
-- BB%=-0.95 (dưới band dưới)
-- Channel Position chỉ 15.4% → Ở đáy kênh, nhưng chưa có dấu hiệu đảo chiều
-- Có thể test lại support 25,000
+**CNG (25,250) - BREAKDOWN** ⚠️
+- BB percent âm (-0.95), Stoch K 8.33
+- Mặc dù trong kênh XANH nhưng đang breakdown MA
 
-**4. PTB, DPR, DBC, VHC, VCI** - TECHNICAL SELL
-- Đều có MACD chuyển Bearish
-- RSI 42-48 (trung tính yếu)
-- Chưa phá hỗ trợ mạnh, nhưng momentum ngắn hạn âm
-- **Khuyến nghị**: Nếu đang nắm giữ → Trailing stop ở MA20 hoặc support gần nhất
+**VCS (44,400) - CHANNEL_BREAK từ kênh ĐỎ** ⚠️
+- RSI 51.5, MFI 67.1, MACD bullish
+- **Rủi ro**: Breakout từ downtrend thường là bẫy, cần xác nhận thêm
 
-**5. VCS (44,400), HAP (7,580) - CHANNEL_BREAK trong kênh ĐỎ**
-- Tuy MACD Bullish, MFI cao, nhưng đang trong kênh DOWNTREND
-- Đây có thể là DEAD CAT BOUNCE
-- **KHÔNG MUA** các mã này, nguy cơ bull trap cao
+**HAP (7,580) - CHANNEL_BREAK từ kênh ĐỎ** ⚠️
+- Volume surge 2.44x, MFI 64
+- **Rủi ro**: Tương tự VCS, có thể là sóng hồi phục kỹ thuật trong downtrend
 
-### **Mã đang yếu nhất (Bottom 10): TRÁNH XA**
+### 🔴 Mã yếu nhất - TRÁNH XA:
 
-Nhóm mã có Total Score ≤ 2, RSI cực thấp:
-- **VCG (18,200)**: RSI=5.74 (!!!) → Trong tình trạng bị bán tháo, có thể delisting
-- **SJS (49,900)**: RSI=12.87
-- **VIX (21,200)**: RSI=20.37
-- **CIG (8,050)**: RSI=25.00
-- **GEX (34,250)**: RSI=25.91
+Top 3 nguy hiểm nhất:
+1. **VCG (18,200)**: RSI **5.7** → Đang sập sàn, không bắt dao rơi
+2. **SJS (49,900)**: RSI **12.87** → Panic selling
+3. **VIX (21,200)**: RSI **20.37** → Downtrend mạnh
 
-**⚠️ Cảnh báo**: Những mã này có RSI dưới 30 kéo dài, không phải "oversold để mua đáy" mà là **đang trong downtrend cấu trúc**. Mua đáy các mã này = "bắt dao rơi", rủi ro cực cao.
+**TRÁNH TOÀN BỘ 10 mã bottom** - Đều trong kênh ĐỎ + RSI < 40 + có sell signal
 
-### **Rủi ro vĩ mô**
+### 🔴 Rủi ro vĩ mô:
 
-1. **Thanh khoản yếu**: Chỉ 11% mã có volume surge → Thiếu sự tham gia của dòng tiền lớn
-2. **BB Squeeze 28.5% thị trường**: Sắp có biến động lớn, nhưng chưa rõ hướng → Có thể breakout hoặc breakdown
-3. **MFI < 50**: Dòng tiền đang rút ra → Nếu kéo dài, có thể dẫn đến điều chỉnh sâu hơn
-4. **Tỷ lệ MACD Bearish 56.4%**: Áp lực bán đang chiếm ưu thế ngắn hạn
+1. **Tâm lý thị trường yếu**: 
+   - Ngân hàng yếu (VCB, CTG) → Trụ chính bị tấn công
+   - 44% mã downtrend = 43% uptrend → Không có leading sector
+
+2. **Thanh khoản suy giảm**:
+   - Chỉ 11% mã volume surge → Thiếu sự quan tâm
+   - MFI < 50 → Net outflow
+
+3. **Rủi ro biến động đột biến**:
+   - 83 mã BB Squeeze → Khi bùng nổ có thể gây volatility mạnh
+   - Nếu breakout xuống → Có thể tạo bán tháo
+
+4. **Thiếu catalyst tích cực**:
+   - Không có nhóm ngành nào dẫn dắt rõ ràng
+   - Momentum yếu (MACD bearish 56%)
 
 ---
 
 ## 4. PHÂN TÍCH PORTFOLIO
 
-**Trạng thái**: Portfolio hiện tại 100% tiền mặt, chưa có vị thế.
+**Trạng thái: 100% tiền mặt**
 
-**Đánh giá**: Đây là VỊ THẾ TỐT NHẤT trong điều kiện thị trường hiện tại.
+✅ **Đây là vị thế AN TOÀN NHẤT** trong bối cảnh hiện tại:
 
-**Khuyến nghị**: GIỮ 100% TIỀN MẶT, không vội vã vào lệnh.
+**Tại sao nên giữ tiền:**
+1. Market breadth yếu (44% downtrend vs 43% uptrend)
+2. Dòng tiền rút ra (MFI 47.5)
+3. Momentum suy yếu (MACD bearish 56%)
+4. Ngân hàng - trụ chính đang yếu
+
+**Khuyến nghị: GIỮ 70-80% TIỀN MẶT**
+- Chỉ phân bổ 20-30% cho 1-2 mã cơ hội tốt nhất (SZC hoặc TVS)
+- Chờ xác nhận thị trường phục hồi rõ ràng hơn:
+  - MACD bullish > 60%
+  - MFI trung bình > 52
+  - Market breadth: Uptrend > 50%
 
 ---
 
 ## 5. CHIẾN LƯỢC NGÀY HÔM NAY
 
-### 🎯 **5 HÀNH ĐỘNG CỤ THỂ**:
+### 📋 HÀNH ĐỘNG CỤ THỂ:
 
-**1. GIỮ 95% TIỀN MẶT** - Ưu tiên hàng đầu  
-Thị trường chưa rõ hướng, dòng tiền yếu → Bảo toàn vốn quan trọng hơn tìm lợi nhuận.
+**1. VỊ THẾ MỚI - THẬN TRỌNG:**
 
-**2. Đặt lệnh mua SZC ở 34,700-34,900 (nếu pullback)** - 5% NAV  
-- Entry: 34,800 trung bình
-- SL: 33,000 (-5.4%)
-- TP1: 37,000 (+6.2%)
-- Chỉ vào nếu có volume confirmation (volume > 1.5x trung bình)
-- Hủy lệnh nếu cuối phiên không khớp
+✅ **Nếu muốn giao dịch (chỉ 20-30% NAV):**
+   - **Mua SZC**: 
+     - Entry: Chờ pullback 34,800-35,000 HOẶC breakout xác nhận > 35,500
+     - SL: 33,300
+     - Size: 5% NAV
+     - Điều kiện: Chỉ vào nếu VN-Index > 1,280 điểm (giả định)
+   
+   - **Mua TVS** (thay thế an toàn hơn):
+     - Entry: 14,900-15,000
+     - SL: 14,300
+     - Size: 4% NAV
 
-**3. TRÁNH XA các mã có tín hiệu bán**  
-Đặc biệt: VCB, CTG, CNG, VCS, HAP và toàn bộ bottom 10.
+❌ **KHÔNG MUA:**
+   - CLC (breakout không volume)
+   - Các tín hiệu pullback (VCB, CTG, PNJ...) → Chờ xác nhận MACD bullish
+   - Bất kỳ mã nào trong bottom 10
 
-**4. Theo dõi nhóm Pullback để vào sau**  
-- PNJ (108,900): Nếu RSI lên > 50 + MACD đảo chiều → Có thể vào ở 107,000-108,000
-- POW (13,500): Nếu Stoch vượt 20 + volume tăng → Cơ hội ở 13,400
-- **Điều kiện**: Phải có xác nhận đảo chiều (MACD bullish crossover + RSI > 40 + Stoch tăng)
+**2. QUẢN TRỊ RỦI RO:**
+   - **Tổng position tối đa**: 20-30% NAV
+   - **SL nghiêm ngặt**: Không thương lượng, cắt ngay khi chạm
+   - **Không add more nếu thua lỗ**: Chờ tín hiệu mới
 
-**5. Setup watchlist cho breakout**  
-Theo dõi 83 mã có BB Squeeze:
-- Nếu breakout khỏi BB với volume > 2x → Tín hiệu mới
-- Ưu tiên mã có Quality Score ≥ 15 và đang trong kênh XANH
+**3. THEO DÕI VÀ CHỜ ĐỢI:**
+   - **Watchlist mua**:
+     - **MWG**: Chờ về 85,000-86,000 hoặc breakout > 90,000
+     - **PNJ**: Chờ MACD bullish + RSI > 45
+     - **DPG, VGC**: Theo dõi nếu market phục hồi
+   
+   - **Watchlist bán** (nếu đang hold):
+     - VCB: Nếu thủng 64,900 → Exit
+     - CTG: Nếu thủng 37,000 → Exit
+     - Bất kỳ mã nào có sell signal
 
-### 📊 **TỶ LỆ TIỀN MẶT KHUYẾN NGHỊ**:
+**4. ĐIỀU KIỆN TÁI ĐÁNH GIÁ:**
+   - **End of day**: Xem lại market breadth
+   - **Tăng tỷ trọng** chỉ khi:
+     - VN-Index có phiên tăng > 1% với volume > trung bình 20 ngày
+     - Uptrend stocks > 50%
+     - MFI trung bình > 52
 
-| Tình huống | Tiền mặt | Cổ phiếu | Ghi chú |
-|------------|----------|----------|---------|
-| **Bảo thủ** (khuyến nghị) | 100% | 0% | Chờ tín hiệu rõ hơn |
-| **Cân bằng** | 95% | 5% (SZC nếu pullback) | Chấp nhận rủi ro nhẹ |
-| **Tích cực** (KHÔNG khuyến nghị) | 85% | 15% | Chỉ khi SZC + thêm 1-2 mã pullback xác nhận |
+**5. TỶ LỆ TIỀN MẶT KHUYẾN NGHỊ: 70-80%**
 
----
-
-## 6. GÓC NHÌN NGƯỢC (CONTRARIAN VIEW)
-
-### ❓ **Điều gì có thể SAI với phân tích trên?**
-
-**1. Nếu phân tích này quá bi quan:**
-- **52 mã RSI < 30** (18% thị trường) → Đây có thể là đáy ngắn hạn, nếu có catalyst tích cực (tin tức vĩ mô, chính sách...) → Có thể có short-squeeze mạnh
-- **BB Squeeze 83 mã** → Nếu breakout lên với volume → Có thể bắt đầu đợt tăng mới mạnh mẽ
-- **Top stocks vẫn khỏe**: MWG, DPG, TNG, VGC đều có chất lượng tốt, MA alignment, dòng tiền dương → Nếu thị trường chung phục hồi, những mã này có thể dẫn dắt
-
-**2. Kịch bản BULLISH sẽ xảy ra nếu:**
-- MFI thị trường vượt lên > 50 trong 1-2 phiên tới
-- Số mã MACD Bullish tăng lên > 150 (hiện tại 127)
-- Volume surge tăng lên > 50 mã (hiện tại 33)
-- VN-Index breakout khỏi vùng kháng cự quan trọng (cần data VN-Index để xác định)
-
-**3. Điều kiện để thay đổi sang quan điểm TÍCH CỰC:**
-- **Ngắn hạn (1-3 phiên)**: 
-  - SZC breakout 37,400 với volume > 2.5x
-  - Top 10 stocks có ≥ 7 mã tăng giá đồng thời
-  - MACD Bullish > 55% thị trường
-  
-- **Trung hạn (1-2 tuần)**:
-  - MFI trung bình > 52 liên tục 5 phiên
-  - Số mã tr`;
+### 🎯 TÓM TẮT 1 DÒNG:
+**"Thị trường yếu và`;
 
 // Derived data
 const STOCKS = ALL_STOCKS.sort((a,b)=>(b.total_score||0)-(a.total_score||0));
@@ -1413,7 +1470,7 @@ function renderAI(){
   return`
   <div class="cd fade-in d1">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div class="cd-title" style="margin:0">AI Market Analysis — 07/02/2026 15:18</div>
+      <div class="cd-title" style="margin:0">AI Market Analysis — 07/02/2026 22:35</div>
       <span class="bdg bdg-p">Claude AI</span>
     </div>
     <div class="ai-box">${html}</div>
