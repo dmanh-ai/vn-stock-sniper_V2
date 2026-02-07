@@ -4,6 +4,7 @@
 # Data - FiinQuantX ONLY (installed separately via extra-index-url)
 pandas>=2.0.0
 numpy>=1.24.0
+matplotlib>=3.7.0
 
 # AI
 anthropic>=0.18.0
