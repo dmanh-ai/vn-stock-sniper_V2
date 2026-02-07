@@ -292,7 +292,7 @@ LƯU Ý QUAN TRỌNG:
             print("🤖 Đang gọi Claude AI phân tích...")
 
             response = self.client.messages.create(
-                model="claude-opus-4-0-20250514",
+                model="claude-sonnet-4-5-20250929",
                 max_tokens=6000,
                 system=self.SYSTEM_PROMPT,
                 messages=[
