@@ -32,7 +32,28 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install --extra-index-url https://fiinquant.github.io/fiinquantx/simple fiinquantx
-          python -c "from FiinQuantX import FiinSession; print('FiinQuantX OK')"
+
+      - name: Verify all imports
+        run: |
+          python -c "
+          import sys
+          errors = []
+          for mod in ['pandas', 'numpy', 'matplotlib', 'scipy', 'plotly', 'fastdtw',
+                      'sklearn', 'statsmodels', 'websocket', 'openpyxl', 'tqdm',
+                      'lxml', 'bs4', 'seaborn', 'requests', 'anthropic']:
+              try:
+                  __import__(mod)
+              except ImportError as e:
+                  errors.append(f'{mod}: {e}')
+          if errors:
+              print('Missing packages:')
+              for e in errors:
+                  print(f'  - {e}')
+              sys.exit(1)
+          print('All base packages OK')
+          from FiinQuantX import FiinSession
+          print('FiinQuantX OK')
+          "
 
       - name: Verify secrets
         env:
