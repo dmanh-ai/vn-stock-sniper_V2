@@ -1,11 +1,13 @@
 """
-VN Stock Sniper - Data Fetcher V8
-Universe: Top ~300 mã theo volume (HOSE + HNX)
-Source: TCBS Public API - Không cần đăng nhập
+VN Stock Sniper - Data Fetcher V9
+Universe: Top ~300 ma theo volume (HOSE + HNX)
+Multi-source: TCBS API (primary) + VCI/Vietcap API (fallback)
 
-Endpoint: https://apipubaws.tcbs.com.vn/stock-insight/v1/stock/bars-long-term
-  - Params: ticker, type=stock, resolution=D, from (unix), to (unix)
-  - Free, public, no auth required
+Sources (from vnstock community research):
+  1. TCBS: https://apiextaws.tcbs.com.vn/stock-insight/v2/stock/bars-long-term
+     - GET, params: resolution=D, ticker, type=stock, to (unix), countBack
+  2. VCI:  https://trading.vietcap.com.vn/api/chart/OHLCChart/gap-chart
+     - POST, json: {timeFrame, symbols, to (unix), countBack}
 """
 
 import pandas as pd
@@ -20,14 +22,14 @@ from src.config import (
     DATA_START_DATE, DATA_DIR, RAW_DATA_FILE, TOP_STOCKS_COUNT
 )
 
-# TCBS API
-TCBS_BASE_URL = "https://apipubaws.tcbs.com.vn/stock-insight/v1/stock/bars-long-term"
-REQUEST_DELAY = 0.15  # 150ms giữa mỗi request
+REQUEST_DELAY = 0.15  # 150ms between requests
 REQUEST_TIMEOUT = 15  # 15s timeout per request
 
 
 class TCBSFetcher:
-    """Lấy dữ liệu từ TCBS Public API - Free, no auth"""
+    """TCBS API v2 - Updated endpoint (apiextaws)"""
+
+    BASE_URL = "https://apiextaws.tcbs.com.vn/stock-insight/v2/stock/bars-long-term"
 
     def __init__(self):
         self.session = requests.Session()
@@ -35,11 +37,149 @@ class TCBSFetcher:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             'Accept': 'application/json',
         })
+
+    def get_price_history(self, symbol: str, count_back: int = 365) -> pd.DataFrame:
+        to_ts = int(time.time())
+        url = (
+            f"{self.BASE_URL}?resolution=D&ticker={symbol}"
+            f"&type=stock&to={to_ts}&countBack={count_back}"
+        )
+
+        resp = self.session.get(url, timeout=REQUEST_TIMEOUT)
+        resp.raise_for_status()
+        data = resp.json()
+
+        if not data or 'data' not in data or not data['data']:
+            return pd.DataFrame()
+
+        df = pd.DataFrame(data['data'])
+
+        # Map TCBS columns: tradingDate -> time
+        col_map = {}
+        for col in df.columns:
+            cl = col.lower()
+            if 'trading' in cl and 'date' in cl:
+                col_map[col] = 'time'
+            elif cl == 'open':
+                col_map[col] = 'open'
+            elif cl == 'high':
+                col_map[col] = 'high'
+            elif cl == 'low':
+                col_map[col] = 'low'
+            elif cl == 'close':
+                col_map[col] = 'close'
+            elif cl == 'volume':
+                col_map[col] = 'volume'
+
+        if col_map:
+            df = df.rename(columns=col_map)
+
+        if 'time' in df.columns:
+            df['time'] = pd.to_datetime(df['time'])
+
+        df['symbol'] = symbol
+
+        required = ['time', 'open', 'high', 'low', 'close', 'volume', 'symbol']
+        if all(c in df.columns for c in required):
+            return df[required]
+
+        return pd.DataFrame()
+
+
+class VCIFetcher:
+    """VCI (Vietcap/VNDirect) API - Recommended long-term source"""
+
+    BASE_URL = "https://trading.vietcap.com.vn/api/chart/OHLCChart/gap-chart"
+
+    def __init__(self):
+        self.session = requests.Session()
+        self.session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+        })
+
+    def get_price_history(self, symbol: str, count_back: int = 365) -> pd.DataFrame:
+        to_ts = int(time.time())
+        payload = {
+            "timeFrame": "ONE_DAY",
+            "symbols": [symbol],
+            "to": to_ts,
+            "countBack": count_back,
+        }
+
+        resp = self.session.post(self.BASE_URL, json=payload, timeout=REQUEST_TIMEOUT)
+        resp.raise_for_status()
+        data = resp.json()
+
+        # VCI response can be: list, dict with 'data', or vectorized {t:[], o:[], ...}
+        records = data
+        if isinstance(data, dict):
+            if 'data' in data:
+                records = data['data']
+
+        # Handle vectorized format: {t: [...], o: [...], h: [...], ...}
+        if isinstance(records, dict) and 't' in records:
+            df = pd.DataFrame(records)
+            col_map = {'t': 'time', 'o': 'open', 'h': 'high', 'l': 'low', 'c': 'close', 'v': 'volume'}
+            df = df.rename(columns=col_map)
+        elif isinstance(records, list) and len(records) > 0:
+            df = pd.DataFrame(records)
+            # Try common column name patterns
+            col_map = {}
+            for col in df.columns:
+                cl = col.lower()
+                if cl in ('t', 'time', 'tradingdate', 'trading_date', 'date'):
+                    col_map[col] = 'time'
+                elif cl in ('o', 'open'):
+                    col_map[col] = 'open'
+                elif cl in ('h', 'high'):
+                    col_map[col] = 'high'
+                elif cl in ('l', 'low'):
+                    col_map[col] = 'low'
+                elif cl in ('c', 'close'):
+                    col_map[col] = 'close'
+                elif cl in ('v', 'volume'):
+                    col_map[col] = 'volume'
+            if col_map:
+                df = df.rename(columns=col_map)
+        else:
+            return pd.DataFrame()
+
+        if df.empty:
+            return pd.DataFrame()
+
+        # Convert time: try unix seconds, then unix milliseconds, then datetime string
+        if 'time' in df.columns:
+            sample = df['time'].iloc[0]
+            if isinstance(sample, (int, float, np.integer, np.floating)):
+                if sample > 1e12:  # milliseconds
+                    df['time'] = pd.to_datetime(df['time'], unit='ms')
+                else:  # seconds
+                    df['time'] = pd.to_datetime(df['time'], unit='s')
+            else:
+                df['time'] = pd.to_datetime(df['time'])
+
+        df['symbol'] = symbol
+
+        required = ['time', 'open', 'high', 'low', 'close', 'volume', 'symbol']
+        if all(c in df.columns for c in required):
+            return df[required]
+
+        return pd.DataFrame()
+
+
+class MultiSourceFetcher:
+    """Try multiple data sources with automatic fallback"""
+
+    def __init__(self):
+        self.tcbs = TCBSFetcher()
+        self.vci = VCIFetcher()
         self._request_count = 0
         self._last_request_time = 0
+        self._active_source = None  # Will be set after probe
 
     def _throttle(self):
-        """Rate limiting"""
         now = time.time()
         elapsed = now - self._last_request_time
         if elapsed < REQUEST_DELAY:
@@ -47,94 +187,88 @@ class TCBSFetcher:
         self._last_request_time = time.time()
         self._request_count += 1
 
-    def get_price_history(self, symbol: str, days: int = 365) -> pd.DataFrame:
-        """Lấy lịch sử giá OHLCV từ TCBS"""
+    def probe_sources(self) -> str:
+        """Test which data source works by fetching ACB data"""
+        test_symbol = "ACB"
+
+        # Try TCBS first
+        print("   Testing TCBS API (apiextaws.tcbs.com.vn)...")
+        try:
+            df = self.tcbs.get_price_history(test_symbol, count_back=5)
+            if not df.empty and len(df) > 0:
+                print(f"   TCBS: OK ({len(df)} rows)")
+                return "TCBS"
+            else:
+                print("   TCBS: Empty response")
+        except Exception as e:
+            print(f"   TCBS: Failed - {type(e).__name__}: {e}")
+
+        # Try VCI fallback
+        print("   Testing VCI API (trading.vietcap.com.vn)...")
+        try:
+            df = self.vci.get_price_history(test_symbol, count_back=5)
+            if not df.empty and len(df) > 0:
+                print(f"   VCI: OK ({len(df)} rows)")
+                return "VCI"
+            else:
+                print("   VCI: Empty response")
+        except Exception as e:
+            print(f"   VCI: Failed - {type(e).__name__}: {e}")
+
+        print("   Both sources failed!")
+        return ""
+
+    def get_price_history(self, symbol: str, count_back: int = 365) -> pd.DataFrame:
         self._throttle()
 
-        to_ts = int(time.time())
-        from_ts = int((datetime.now() - timedelta(days=days)).timestamp())
-
-        url = f"{TCBS_BASE_URL}?ticker={symbol}&type=stock&resolution=D&from={from_ts}&to={to_ts}"
-
+        # Use the active source determined by probe
         try:
-            resp = self.session.get(url, timeout=REQUEST_TIMEOUT)
-            resp.raise_for_status()
-            data = resp.json()
-
-            # Debug: log response cho mã đầu tiên
-            if self._request_count <= 2:
-                keys = list(data.keys()) if isinstance(data, dict) else type(data).__name__
-                print(f"   🔍 DEBUG {symbol}: response keys={keys}")
-                if isinstance(data, dict) and 'data' in data and data['data']:
-                    sample = data['data'][0] if isinstance(data['data'], list) else data['data']
-                    print(f"   🔍 DEBUG {symbol}: first record keys={list(sample.keys()) if isinstance(sample, dict) else 'N/A'}")
-
-            if not data or 'data' not in data or not data['data']:
-                if self._request_count <= 5:
-                    print(f"   ⚠️ {symbol}: no data field. Response: {str(data)[:200]}")
+            if self._active_source == "TCBS":
+                df = self.tcbs.get_price_history(symbol, count_back)
+                if not df.empty:
+                    return df
+                # Fallback to VCI
+                df = self.vci.get_price_history(symbol, count_back)
+                return df
+            elif self._active_source == "VCI":
+                df = self.vci.get_price_history(symbol, count_back)
+                if not df.empty:
+                    return df
+                # Fallback to TCBS
+                df = self.tcbs.get_price_history(symbol, count_back)
+                return df
+            else:
+                # No source determined, try both
+                try:
+                    df = self.tcbs.get_price_history(symbol, count_back)
+                    if not df.empty:
+                        return df
+                except Exception:
+                    pass
+                try:
+                    df = self.vci.get_price_history(symbol, count_back)
+                    if not df.empty:
+                        return df
+                except Exception:
+                    pass
                 return pd.DataFrame()
 
-            df = pd.DataFrame(data['data'])
-
-            if self._request_count <= 2:
-                print(f"   🔍 DEBUG {symbol}: columns={list(df.columns)}")
-
-            # Chuẩn hóa columns
-            col_map = {}
-            for col in df.columns:
-                cl = col.lower()
-                if 'trading' in cl and 'date' in cl:
-                    col_map[col] = 'time'
-                elif cl == 'open':
-                    col_map[col] = 'open'
-                elif cl == 'high':
-                    col_map[col] = 'high'
-                elif cl == 'low':
-                    col_map[col] = 'low'
-                elif cl == 'close':
-                    col_map[col] = 'close'
-                elif cl == 'volume':
-                    col_map[col] = 'volume'
-
-            if col_map:
-                df = df.rename(columns=col_map)
-
-            if 'time' in df.columns:
-                df['time'] = pd.to_datetime(df['time'])
-
-            df['symbol'] = symbol
-
-            required = ['time', 'open', 'high', 'low', 'close', 'volume', 'symbol']
-            if all(c in df.columns for c in required):
-                return df[required]
-
-            print(f"   ⚠️ {symbol}: missing required columns. Have: {list(df.columns)}")
-            return pd.DataFrame()
-
-        except requests.exceptions.HTTPError as e:
-            if self._request_count <= 5:
-                print(f"   ❗ {symbol}: HTTP {e.response.status_code if e.response else '?'} - {e}")
-            if e.response is not None and e.response.status_code == 429:
-                print(f"   ⏳ Rate limit! Chờ 30s...")
-                time.sleep(30)
-                return self.get_price_history(symbol, days)
-            return pd.DataFrame()
         except Exception as e:
             if self._request_count <= 5:
-                print(f"   ❗ {symbol}: {type(e).__name__}: {e}")
+                print(f"   {symbol}: {type(e).__name__}: {e}")
             return pd.DataFrame()
 
 
 class DataFetcher:
-    """Lấy dữ liệu chứng khoán Việt Nam - Top 300 mã - TCBS API"""
+    """Lay du lieu chung khoan Viet Nam - Top 300 ma - Multi-source"""
 
-    # === DANH SÁCH CỐ ĐỊNH ===
+    # === DANH SACH CO DINH ===
     VN100_SYMBOLS = [
         # VN30
         'ACB', 'BCM', 'BID', 'BVH', 'CTG', 'FPT', 'GAS', 'GVR', 'HDB', 'HPG',
         'MBB', 'MSN', 'MWG', 'PLX', 'POW', 'SAB', 'SHB', 'SSB', 'SSI', 'STB',
         'TCB', 'TPB', 'VCB', 'VHM', 'VIB', 'VIC', 'VJC', 'VNM', 'VPB', 'VRE',
-        # VNMidCap (70 mã)
+        # VNMidCap (70 ma)
         'ANV', 'APH', 'ASM', 'BAF', 'BMP', 'BSR', 'BWE', 'CII', 'CMG', 'CTD',
         'DBC', 'DCM', 'DGC', 'DGW', 'DHC', 'DIG', 'DPM', 'DXG', 'DXS', 'EVF',
         'FCN', 'FRT', 'GEX', 'GMD', 'HAH', 'HCM', 'HDC', 'HDG', 'HSG', 'HT1',
@@ -150,7 +284,7 @@ class DataFetcher:
         'TIG', 'TNG', 'TVS', 'VC3', 'VCS', 'VGS', 'VIX', 'VLA', 'VMC', 'VNR',
     ]
 
-    # === MÃ BỔ SUNG để đạt ~300 ===
+    # === MA BO SUNG de dat ~300 ===
     EXTRA_HOSE_SYMBOLS = [
         'AAA', 'ABB', 'AGG', 'AGR', 'APG', 'BCG', 'BFC', 'BHN', 'BIC', 'BMI',
         'BRC', 'BSI', 'BTS', 'BVB', 'CAV', 'CHP', 'CIG', 'CLC', 'CLW', 'CMX',
@@ -180,15 +314,13 @@ class DataFetcher:
     ]
 
     def __init__(self):
-        self.fetcher = TCBSFetcher()
-        print("✅ TCBS API: Sẵn sàng (no auth required)")
+        self.fetcher = MultiSourceFetcher()
 
     def get_symbols(self) -> list:
-        """Lấy danh sách ~300 mã (HOSE + HNX)"""
-        print(f"📋 Lấy danh sách top {TOP_STOCKS_COUNT} mã...")
+        print(f"📋 Lay danh sach top {TOP_STOCKS_COUNT} ma...")
 
         all_symbols = list(dict.fromkeys(self.VN100_SYMBOLS + self.HNX30_SYMBOLS))
-        print(f"   📋 VN100 + HNX30: {len(all_symbols)} mã (cố định)")
+        print(f"   📋 VN100 + HNX30: {len(all_symbols)} ma (co dinh)")
 
         if len(all_symbols) < TOP_STOCKS_COUNT:
             extra = [s for s in self.EXTRA_HOSE_SYMBOLS + self.EXTRA_HNX_SYMBOLS
@@ -196,15 +328,26 @@ class DataFetcher:
             need = TOP_STOCKS_COUNT - len(all_symbols)
             all_symbols.extend(extra[:need])
 
-        print(f"   📊 Tổng: {len(all_symbols)} mã")
+        print(f"   📊 Tong: {len(all_symbols)} ma")
         return all_symbols
 
     def fetch_all_data(self) -> pd.DataFrame:
-        """Lấy dữ liệu tất cả mã từ Entrade"""
         symbols = self.get_symbols()
 
-        print(f"\n📥 Lấy dữ liệu {len(symbols)} mã từ TCBS...")
-        print(f"⏰ Rate limit: {REQUEST_DELAY}s/req | Timeout: {REQUEST_TIMEOUT}s/mã\n")
+        # Probe which source works before fetching all
+        print("\n🔍 Kiem tra nguon du lieu...")
+        source = self.fetcher.probe_sources()
+        if not source:
+            print("❌ Khong the ket noi den bat ky nguon du lieu nao!")
+            print("   - TCBS: apiextaws.tcbs.com.vn")
+            print("   - VCI:  trading.vietcap.com.vn")
+            return pd.DataFrame()
+
+        self.fetcher._active_source = source
+        print(f"✅ Su dung nguon: {source}\n")
+
+        print(f"📥 Lay du lieu {len(symbols)} ma tu {source}...")
+        print(f"⏰ Rate limit: {REQUEST_DELAY}s/req | Timeout: {REQUEST_TIMEOUT}s/ma\n")
 
         all_data = []
         ok = 0
@@ -214,7 +357,7 @@ class DataFetcher:
         for i, symbol in enumerate(symbols):
             elapsed = time.time() - t0
             if elapsed > 1800:
-                print(f"\n⚠️ QUÁ 30 PHÚT - Dừng ({ok} mã)")
+                print(f"\n⚠️ QUA 30 PHUT - Dung ({ok} ma)")
                 break
 
             df = self.fetcher.get_price_history(symbol)
@@ -223,17 +366,23 @@ class DataFetcher:
                 all_data.append(df)
                 ok += 1
                 if (i + 1) % 20 == 0 or (i + 1) == len(symbols):
-                    print(f"   [{i+1}/{len(symbols)}] ✅ {ok} mã OK / {fail} fail")
+                    print(f"   [{i+1}/{len(symbols)}] ✅ {ok} ma OK / {fail} fail")
             else:
                 fail += 1
-                if fail <= 5:
+                if fail <= 10:
                     print(f"   [{i+1}/{len(symbols)}] ❌ {symbol}")
+
+            # Early abort if first 10 stocks all fail
+            if i == 9 and ok == 0:
+                print(f"\n❌ 10 ma dau tien deu that bai - dung lai!")
+                print(f"   Nguon {source} co the khong hoat dong.")
+                break
 
         total = time.time() - t0
         print(f"\n{'='*50}")
-        print(f"📊 {ok} ✅ / {fail} ❌ / {len(symbols)} tổng")
-        print(f"📡 Nguồn: TCBS")
-        print(f"⏱️ {total:.0f}s ({total/60:.1f} phút)")
+        print(f"📊 {ok} ✅ / {fail} ❌ / {len(symbols)} tong")
+        print(f"📡 Nguon: {source}")
+        print(f"⏱️ {total:.0f}s ({total/60:.1f} phut)")
         print(f"{'='*50}")
 
         if all_data:
@@ -241,20 +390,19 @@ class DataFetcher:
         return pd.DataFrame()
 
     def save_data(self, df: pd.DataFrame):
-        """Lưu file"""
         if df.empty:
-            print("❌ Không có data")
+            print("❌ Khong co data")
             return
 
         os.makedirs(DATA_DIR, exist_ok=True)
         df.to_csv(RAW_DATA_FILE, index=False)
         symbols_count = df['symbol'].nunique() if 'symbol' in df.columns else 0
-        print(f"✅ Saved: {RAW_DATA_FILE} ({len(df)} rows, {symbols_count} mã)")
+        print(f"✅ Saved: {RAW_DATA_FILE} ({len(df)} rows, {symbols_count} ma)")
 
     def run(self) -> pd.DataFrame:
-        """Chạy lấy dữ liệu"""
         print("=" * 60)
-        print("📥 BẮT ĐẦU LẤY DỮ LIỆU - TOP 300 MÃ (TCBS API)")
+        print("📥 BAT DAU LAY DU LIEU - TOP 300 MA")
+        print("   Nguon: TCBS (primary) + VCI (fallback)")
         print("=" * 60)
 
         df = self.fetch_all_data()
@@ -269,4 +417,4 @@ if __name__ == "__main__":
     fetcher = DataFetcher()
     df = fetcher.run()
     symbols_count = df['symbol'].nunique() if not df.empty and 'symbol' in df.columns else 0
-    print(f"\nKết quả: {len(df)} rows, {symbols_count} mã")
+    print(f"\nKet qua: {len(df)} rows, {symbols_count} ma")
