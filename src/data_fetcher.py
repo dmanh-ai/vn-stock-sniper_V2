@@ -1,11 +1,12 @@
 """
-VN Stock Sniper - Data Fetcher V6
-Universe: Top ~300 mã theo volume (HOSE + HNX)
+VN Stock Sniper - Data Fetcher V7
+Universe: VN30 + 3 HNX blue chips = 33 mã (FiinQuant free tier max)
 Source: FiinQuantX ONLY (fiinquant.vn)
 
-Rate limits FiinQuantX (free):
-  - 90 requests/phút, 80 requests/giây
-  - Max 33 mã/lần (lịch sử), period tối đa 1 năm
+FiinQuant Free Tier Limits:
+  - Max 33 mã lịch sử, 1D timeframe, 1 năm history
+  - 100,000 requests/tháng, 90 req/phút, 80 req/giây
+  - 1 kết nối đồng thời
 """
 
 import pandas as pd
@@ -223,58 +224,17 @@ class FiinQuantFetcher:
 
 
 class DataFetcher:
-    """Lấy dữ liệu chứng khoán Việt Nam - Top 300 mã - FiinQuant ONLY"""
+    """Lấy dữ liệu chứng khoán Việt Nam - 33 mã - FiinQuant Free Tier"""
 
-    # === DANH SÁCH CỐ ĐỊNH (fallback khi không lấy được động) ===
-    VN100_SYMBOLS = [
-        # VN30
+    # === VN30 (30 blue chips HOSE) + 3 HNX blue chips = 33 mã ===
+    VN30_SYMBOLS = [
         'ACB', 'BCM', 'BID', 'BVH', 'CTG', 'FPT', 'GAS', 'GVR', 'HDB', 'HPG',
         'MBB', 'MSN', 'MWG', 'PLX', 'POW', 'SAB', 'SHB', 'SSB', 'SSI', 'STB',
         'TCB', 'TPB', 'VCB', 'VHM', 'VIB', 'VIC', 'VJC', 'VNM', 'VPB', 'VRE',
-        # VNMidCap (70 mã)
-        'ANV', 'APH', 'ASM', 'BAF', 'BMP', 'BSR', 'BWE', 'CII', 'CMG', 'CTD',
-        'DBC', 'DCM', 'DGC', 'DGW', 'DHC', 'DIG', 'DPM', 'DXG', 'DXS', 'EVF',
-        'FCN', 'FRT', 'GEX', 'GMD', 'HAH', 'HCM', 'HDC', 'HDG', 'HSG', 'HT1',
-        'IDI', 'IMP', 'KBC', 'KDC', 'KDH', 'KOS', 'LPB', 'MSH', 'NKG', 'NLG',
-        'NT2', 'NVL', 'ORS', 'PAN', 'PC1', 'PDR', 'PGV', 'PHR', 'PNJ', 'PPC',
-        'PVD', 'PVT', 'REE', 'SBT', 'SCS', 'SIP', 'SJS', 'STG', 'SZC', 'TCH',
-        'TLG', 'TNH', 'VCG', 'VCI', 'VGC', 'VHC', 'VND', 'VOS', 'VPI', 'VTP',
     ]
 
-    HNX30_SYMBOLS = [
-        'BAB', 'BVS', 'CEO', 'DTD', 'HUT', 'IDC', 'L14', 'MBS', 'NDN', 'NRC',
-        'NTP', 'PLC', 'PVB', 'PVI', 'PVS', 'S99', 'SHN', 'SHS', 'TDC', 'THD',
-        'TIG', 'TNG', 'TVS', 'VC3', 'VCS', 'VGS', 'VIX', 'VLA', 'VMC', 'VNR',
-    ]
-
-    # === MÃ BỔ SUNG để đạt ~300 (HOSE + HNX thanh khoản cao) ===
-    EXTRA_HOSE_SYMBOLS = [
-        'AAA', 'ABB', 'AGG', 'AGR', 'APG', 'BCG', 'BFC', 'BHN', 'BIC', 'BMI',
-        'BRC', 'BSI', 'BTS', 'BVB', 'CAV', 'CHP', 'CIG', 'CLC', 'CLW', 'CMX',
-        'CNG', 'COM', 'CRC', 'CRE', 'CSM', 'CSV', 'CTF', 'CTI', 'CTR', 'D2D',
-        'DAH', 'DAT', 'DBD', 'DHA', 'DHG', 'DLG', 'DMC', 'DPG', 'DPR', 'DRC',
-        'DRL', 'DSN', 'DTA', 'DTL', 'DVP', 'ELC', 'EMC', 'EVG', 'FDC', 'FIT',
-        'FMC', 'FOX', 'FTS', 'GDT', 'GIL', 'GLW', 'GSP', 'GTA', 'GTN', 'HAG',
-        'HAI', 'HAP', 'HAS', 'HAX', 'HBC', 'HCD', 'HCT', 'HDG', 'HHP', 'HHS',
-        'HID', 'HII', 'HLG', 'HMC', 'HNG', 'HOT', 'HPX', 'HQC', 'HRC', 'HSL',
-        'HTI', 'HTL', 'HTN', 'HTV', 'HU1', 'HUB', 'ICT', 'IJC', 'ILB', 'ITA',
-        'ITD', 'JVC', 'KHA', 'KHP', 'KMR', 'KPF', 'KSB', 'KSH', 'L10', 'LAF',
-        'LBM', 'LCD', 'LCG', 'LDG', 'LEC', 'LGC', 'LGL', 'LHG', 'LIX', 'LM8',
-        'LSS', 'MCP', 'MDG', 'MHC', 'NAF', 'NAV', 'NBB', 'NCT', 'NET', 'NHH',
-        'NNC', 'NTL', 'OPC', 'OGC', 'PAC', 'PBC', 'PDN', 'PET', 'PGD', 'PGI',
-        'PIT', 'PLP', 'PMG', 'POM', 'PTB', 'PTL', 'QBS', 'QCG', 'RAL', 'RDP',
-        'S4A', 'SAM', 'SBA', 'SBV', 'SC5', 'SCD', 'SCR', 'SGN', 'SGR', 'SGT',
-        'SHA', 'SHI', 'SMB', 'SMC', 'SPM', 'SRC', 'SRF', 'SSC', 'ST8', 'STK',
-        'SVD', 'SVT', 'SZL', 'TBC', 'TCL', 'TCM', 'TCO', 'TCR', 'TDH', 'TDM',
-    ]
-
-    EXTRA_HNX_SYMBOLS = [
-        'AMV', 'BCC', 'BDB', 'BKC', 'CAG', 'CIA', 'CPC', 'CVT', 'DAD',
-        'DAS', 'DHP', 'DNP', 'DS3', 'DTK', 'DTV', 'DVG', 'EVS', 'GKM',
-        'HBS', 'HGM', 'HKB', 'HLC', 'HLD', 'HMH', 'HNM', 'HOM', 'ICG',
-        'KMT', 'KSD', 'KTS', 'LAS', 'LCS', 'LHC', 'MAC', 'MBG', 'MCO',
-        'NBC', 'NHC', 'NHT', 'NSH', 'PHP', 'PMC', 'PMS', 'PPE', 'PSC',
-    ]
+    # 3 mã HNX thanh khoản cao nhất
+    HNX_TOP3 = ['PVS', 'SHS', 'IDC']
 
     def __init__(self):
         self.source = DATA_SOURCE
@@ -285,35 +245,18 @@ class DataFetcher:
             self.fiinquant = FiinQuantFetcher(FIINQUANT_USERNAME, FIINQUANT_PASSWORD)
             if not self.fiinquant.login():
                 self.fiinquant = None
-                print("❌ FiinQuant login thất bại. Không có nguồn dữ liệu!")
+                print("❌ FiinQuant login thất bại!")
         else:
-            print("❌ Thiếu FIINQUANT_USERNAME / FIINQUANT_PASSWORD trong .env")
-            print("   Vui lòng cấu hình FiinQuant credentials.")
+            print("❌ Thiếu FIINQUANT_USERNAME / FIINQUANT_PASSWORD")
 
     def get_symbols(self) -> list:
-        """Lấy danh sách ~300 mã (HOSE + HNX)"""
+        """Lấy danh sách 33 mã (VN30 + 3 HNX) - free tier max"""
         from src.config import TOP_STOCKS_COUNT
-        print(f"📋 Lấy danh sách top {TOP_STOCKS_COUNT} mã...")
-
-        # Bước 1: Thử đọc từ cache
-        cached = load_cached_symbols()
-        if len(cached) >= 100:
-            if len(cached) >= TOP_STOCKS_COUNT:
-                return cached[:TOP_STOCKS_COUNT]
-
-        # Bước 2: Dùng danh sách cố định
-        all_symbols = list(dict.fromkeys(self.VN100_SYMBOLS + self.HNX30_SYMBOLS))
-        print(f"   📋 VN100 + HNX30: {len(all_symbols)} mã (cố định)")
-
-        # Bước 3: Bổ sung thêm mã để đạt ~300
-        if len(all_symbols) < TOP_STOCKS_COUNT:
-            extra = [s for s in self.EXTRA_HOSE_SYMBOLS + self.EXTRA_HNX_SYMBOLS
-                     if s not in all_symbols]
-            need = TOP_STOCKS_COUNT - len(all_symbols)
-            all_symbols.extend(extra[:need])
-
-        print(f"   📊 Tổng: {len(all_symbols)} mã")
-        return all_symbols
+        all_symbols = list(dict.fromkeys(self.VN30_SYMBOLS + self.HNX_TOP3))
+        symbols = all_symbols[:TOP_STOCKS_COUNT]
+        print(f"📋 Lấy danh sách top {len(symbols)} mã...")
+        print(f"   📋 VN30 + HNX top: {len(symbols)} mã (free tier max: 33)")
+        return symbols
 
     def fetch_with_timeout(self, symbol: str, timeout_sec: int = 30) -> pd.DataFrame:
         """Lấy data với timeout"""
@@ -397,7 +340,7 @@ class DataFetcher:
     def run(self) -> pd.DataFrame:
         """Chạy lấy dữ liệu"""
         print("=" * 60)
-        print("📥 BẮT ĐẦU LẤY DỮ LIỆU - TOP 300 MÃ (FiinQuant ONLY)")
+        print("📥 BẮT ĐẦU LẤY DỮ LIỆU - VN30 + HNX TOP (FiinQuant Free)")
         print("=" * 60)
 
         df = self.fetch_all_data()
