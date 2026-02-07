@@ -95,7 +95,7 @@ Nguyên tắc phân tích của bạn:
                     'support', 'resistance',
                     'lr_slope_pct', 'channel_position', 'atr_percent']
         available_cols = [c for c in cols_top if c in df.columns]
-        top_15 = df.head(15)[available_cols].to_dict('records')
+        top_15 = df.head(10)[available_cols].to_dict('records')
 
         # === SIGNALS DETAIL ===
         sig_cols = ['symbol', 'close', 'quality_score', 'momentum_score', 'total_score',
@@ -108,7 +108,7 @@ Nguyên tắc phân tích của bạn:
                     'lr_slope_pct', 'channel_position',
                     'above_ma200', 'above_ma50', 'above_ma20']
         available_sig = [c for c in sig_cols if c in signals_df.columns] if not signals_df.empty else []
-        buy_signals = signals_df[available_sig].to_dict('records') if available_sig else []
+        buy_signals = signals_df[available_sig].head(15).to_dict('records') if available_sig else []
 
         # === SELL SIGNALS ===
         sell_df = df[df['sell_signal'].notna() & (df['sell_signal'] != '')]
@@ -183,7 +183,7 @@ Nguyên tắc phân tích của bạn:
 3. PHÂN BỐ CHẤT LƯỢNG:
 - 5 sao: {star_5} mã | 4 sao: {star_4} mã | 3 sao: {star_3} mã
 
-4. TOP 15 CỔ PHIẾU (xếp theo tổng điểm Quality + Momentum):
+4. TOP 10 CỔ PHIẾU (xếp theo tổng điểm Quality + Momentum):
 {json.dumps(top_15, indent=2, ensure_ascii=False)}
 
 5. TÍN HIỆU MUA ({len(buy_signals)} mã):
@@ -292,8 +292,8 @@ LƯU Ý QUAN TRỌNG:
             print("🤖 Đang gọi Claude AI phân tích...")
 
             response = self.client.messages.create(
-                model="claude-sonnet-4-5-20250929",
-                max_tokens=8000,
+                model="claude-opus-4-0-20250514",
+                max_tokens=6000,
                 system=self.SYSTEM_PROMPT,
                 messages=[
                     {"role": "user", "content": prompt}
