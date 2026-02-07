@@ -1,9 +1,7 @@
 # VN Stock Sniper - Requirements
 # Cài đặt: pip install -r requirements.txt
 
-# Data - Primary: FiinQuantX, Fallback: vnstock
-# FiinQuantX: pip install --extra-index-url https://fiinquant.github.io/fiinquantx/simple fiinquantx
-vnstock>=3.0.0
+# Data - FiinQuantX ONLY (installed separately via extra-index-url)
 pandas>=2.0.0
 numpy>=1.24.0
 

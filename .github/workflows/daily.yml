@@ -31,7 +31,20 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install --extra-index-url https://fiinquant.github.io/fiinquantx/simple fiinquantx || echo "FiinQuantX not available, using vnstock fallback"
+          pip install --extra-index-url https://fiinquant.github.io/fiinquantx/simple fiinquantx
+          python -c "from FiinQuantX import FiinSession; print('FiinQuantX OK')"
+
+      - name: Verify secrets
+        env:
+          FIINQUANT_USERNAME: ${{ secrets.FIINQUANT_USERNAME }}
+          FIINQUANT_PASSWORD: ${{ secrets.FIINQUANT_PASSWORD }}
+        run: |
+          if [ -z "$FIINQUANT_USERNAME" ] || [ -z "$FIINQUANT_PASSWORD" ]; then
+            echo "::error::FIINQUANT_USERNAME hoặc FIINQUANT_PASSWORD chưa được set trong GitHub Secrets!"
+            echo "Vào Settings > Secrets and variables > Actions > New repository secret"
+            exit 1
+          fi
+          echo "Secrets OK"
 
       - name: Run VN Stock Sniper
         timeout-minutes: 45
