@@ -1,12 +1,17 @@
 """
-VN Stock Sniper - Data Fetcher V9
+VN Stock Sniper - Data Fetcher V10
 Universe: Top ~300 ma theo volume (HOSE + HNX)
-Multi-source: TCBS API (primary) + VCI/Vietcap API (fallback)
+Multi-source: DNSE (primary) + TCBS (fallback 1) + VCI (fallback 2)
 
-Sources (from vnstock community research):
-  1. TCBS: https://apiextaws.tcbs.com.vn/stock-insight/v2/stock/bars-long-term
+Sources:
+  1. DNSE: https://services.entrade.com.vn/chart-api/v2/ohlcs/stock
+     - GET, params: symbol, resolution=1D, from (unix), to (unix)
+     - No auth, needs Origin/Referer headers from banggia.dnse.com.vn
+     - Prices divided by 1000 (need to multiply back)
+     - Source: vietfin library (github.com/vietfin/vietfin)
+  2. TCBS: https://apiextaws.tcbs.com.vn/stock-insight/v2/stock/bars-long-term
      - GET, params: resolution=D, ticker, type=stock, to (unix), countBack
-  2. VCI:  https://trading.vietcap.com.vn/api/chart/OHLCChart/gap-chart
+  3. VCI:  https://trading.vietcap.com.vn/api/chart/OHLCChart/gap-chart
      - POST, json: {timeFrame, symbols, to (unix), countBack}
 """
 
@@ -26,8 +31,53 @@ REQUEST_DELAY = 0.15  # 150ms between requests
 REQUEST_TIMEOUT = 15  # 15s timeout per request
 
 
+class DNSEFetcher:
+    """DNSE/Entrade chart API - No auth required"""
+
+    BASE_URL = "https://services.entrade.com.vn/chart-api/v2/ohlcs/stock"
+
+    def __init__(self):
+        self.session = requests.Session()
+        self.session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/json',
+            'Origin': 'https://banggia.dnse.com.vn',
+            'Referer': 'https://banggia.dnse.com.vn/',
+        })
+
+    def get_price_history(self, symbol: str, days: int = 365) -> pd.DataFrame:
+        to_ts = int(time.time())
+        from_ts = int((datetime.now() - timedelta(days=days)).timestamp())
+
+        params = {
+            'symbol': symbol,
+            'resolution': '1D',
+            'from': from_ts,
+            'to': to_ts,
+        }
+
+        resp = self.session.get(self.BASE_URL, params=params, timeout=REQUEST_TIMEOUT)
+        resp.raise_for_status()
+        data = resp.json()
+
+        # Response: {"t": [...], "o": [...], "h": [...], "l": [...], "c": [...], "v": [...]}
+        if not data or 't' not in data or not data['t']:
+            return pd.DataFrame()
+
+        df = pd.DataFrame({
+            'time': pd.to_datetime(data['t'], unit='s'),
+            'open': np.array(data['o'], dtype=float) * 1000,
+            'high': np.array(data['h'], dtype=float) * 1000,
+            'low': np.array(data['l'], dtype=float) * 1000,
+            'close': np.array(data['c'], dtype=float) * 1000,
+            'volume': data['v'],
+        })
+        df['symbol'] = symbol
+        return df[['time', 'open', 'high', 'low', 'close', 'volume', 'symbol']]
+
+
 class TCBSFetcher:
-    """TCBS API v2 - Updated endpoint (apiextaws)"""
+    """TCBS API v2 - Updated endpoint (apiextaws), deprecated March 2026"""
 
     BASE_URL = "https://apiextaws.tcbs.com.vn/stock-insight/v2/stock/bars-long-term"
 
@@ -38,11 +88,11 @@ class TCBSFetcher:
             'Accept': 'application/json',
         })
 
-    def get_price_history(self, symbol: str, count_back: int = 365) -> pd.DataFrame:
+    def get_price_history(self, symbol: str, days: int = 365) -> pd.DataFrame:
         to_ts = int(time.time())
         url = (
             f"{self.BASE_URL}?resolution=D&ticker={symbol}"
-            f"&type=stock&to={to_ts}&countBack={count_back}"
+            f"&type=stock&to={to_ts}&countBack={days}"
         )
 
         resp = self.session.get(url, timeout=REQUEST_TIMEOUT)
@@ -54,7 +104,6 @@ class TCBSFetcher:
 
         df = pd.DataFrame(data['data'])
 
-        # Map TCBS columns: tradingDate -> time
         col_map = {}
         for col in df.columns:
             cl = col.lower()
@@ -87,7 +136,7 @@ class TCBSFetcher:
 
 
 class VCIFetcher:
-    """VCI (Vietcap/VNDirect) API - Recommended long-term source"""
+    """VCI (Vietcap) API - Recommended long-term source"""
 
     BASE_URL = "https://trading.vietcap.com.vn/api/chart/OHLCChart/gap-chart"
 
@@ -99,37 +148,33 @@ class VCIFetcher:
             'Content-Type': 'application/json',
         })
 
-    def get_price_history(self, symbol: str, count_back: int = 365) -> pd.DataFrame:
+    def get_price_history(self, symbol: str, days: int = 365) -> pd.DataFrame:
         to_ts = int(time.time())
         payload = {
             "timeFrame": "ONE_DAY",
             "symbols": [symbol],
             "to": to_ts,
-            "countBack": count_back,
+            "countBack": days,
         }
 
         resp = self.session.post(self.BASE_URL, json=payload, timeout=REQUEST_TIMEOUT)
         resp.raise_for_status()
         data = resp.json()
 
-        # VCI response can be: list, dict with 'data', or vectorized {t:[], o:[], ...}
         records = data
-        if isinstance(data, dict):
-            if 'data' in data:
-                records = data['data']
+        if isinstance(data, dict) and 'data' in data:
+            records = data['data']
 
-        # Handle vectorized format: {t: [...], o: [...], h: [...], ...}
         if isinstance(records, dict) and 't' in records:
             df = pd.DataFrame(records)
-            col_map = {'t': 'time', 'o': 'open', 'h': 'high', 'l': 'low', 'c': 'close', 'v': 'volume'}
-            df = df.rename(columns=col_map)
+            df = df.rename(columns={'t': 'time', 'o': 'open', 'h': 'high',
+                                    'l': 'low', 'c': 'close', 'v': 'volume'})
         elif isinstance(records, list) and len(records) > 0:
             df = pd.DataFrame(records)
-            # Try common column name patterns
             col_map = {}
             for col in df.columns:
                 cl = col.lower()
-                if cl in ('t', 'time', 'tradingdate', 'trading_date', 'date'):
+                if cl in ('t', 'time', 'tradingdate', 'date'):
                     col_map[col] = 'time'
                 elif cl in ('o', 'open'):
                     col_map[col] = 'open'
@@ -149,14 +194,11 @@ class VCIFetcher:
         if df.empty:
             return pd.DataFrame()
 
-        # Convert time: try unix seconds, then unix milliseconds, then datetime string
         if 'time' in df.columns:
             sample = df['time'].iloc[0]
             if isinstance(sample, (int, float, np.integer, np.floating)):
-                if sample > 1e12:  # milliseconds
-                    df['time'] = pd.to_datetime(df['time'], unit='ms')
-                else:  # seconds
-                    df['time'] = pd.to_datetime(df['time'], unit='s')
+                unit = 'ms' if sample > 1e12 else 's'
+                df['time'] = pd.to_datetime(df['time'], unit=unit)
             else:
                 df['time'] = pd.to_datetime(df['time'])
 
@@ -170,14 +212,17 @@ class VCIFetcher:
 
 
 class MultiSourceFetcher:
-    """Try multiple data sources with automatic fallback"""
+    """Try multiple data sources: DNSE -> TCBS -> VCI"""
+
+    SOURCES = ["DNSE", "TCBS", "VCI"]
 
     def __init__(self):
+        self.dnse = DNSEFetcher()
         self.tcbs = TCBSFetcher()
         self.vci = VCIFetcher()
         self._request_count = 0
         self._last_request_time = 0
-        self._active_source = None  # Will be set after probe
+        self._active_source = None
 
     def _throttle(self):
         now = time.time()
@@ -187,88 +232,56 @@ class MultiSourceFetcher:
         self._last_request_time = time.time()
         self._request_count += 1
 
+    def _get_fetcher(self, source: str):
+        return {"DNSE": self.dnse, "TCBS": self.tcbs, "VCI": self.vci}[source]
+
     def probe_sources(self) -> str:
-        """Test which data source works by fetching ACB data"""
+        """Test each data source with ACB, return first working one"""
         test_symbol = "ACB"
 
-        # Try TCBS first
-        print("   Testing TCBS API (apiextaws.tcbs.com.vn)...")
-        try:
-            df = self.tcbs.get_price_history(test_symbol, count_back=5)
-            if not df.empty and len(df) > 0:
-                print(f"   TCBS: OK ({len(df)} rows)")
-                return "TCBS"
-            else:
-                print("   TCBS: Empty response")
-        except Exception as e:
-            print(f"   TCBS: Failed - {type(e).__name__}: {e}")
+        for source in self.SOURCES:
+            fetcher = self._get_fetcher(source)
+            print(f"   Testing {source}...")
+            try:
+                df = fetcher.get_price_history(test_symbol, days=5)
+                if not df.empty and len(df) > 0:
+                    print(f"   {source}: OK ({len(df)} rows)")
+                    return source
+                else:
+                    print(f"   {source}: Empty response")
+            except Exception as e:
+                print(f"   {source}: Failed - {type(e).__name__}: {e}")
 
-        # Try VCI fallback
-        print("   Testing VCI API (trading.vietcap.com.vn)...")
-        try:
-            df = self.vci.get_price_history(test_symbol, count_back=5)
-            if not df.empty and len(df) > 0:
-                print(f"   VCI: OK ({len(df)} rows)")
-                return "VCI"
-            else:
-                print("   VCI: Empty response")
-        except Exception as e:
-            print(f"   VCI: Failed - {type(e).__name__}: {e}")
-
-        print("   Both sources failed!")
+        print("   All sources failed!")
         return ""
 
-    def get_price_history(self, symbol: str, count_back: int = 365) -> pd.DataFrame:
+    def get_price_history(self, symbol: str, days: int = 365) -> pd.DataFrame:
         self._throttle()
 
-        # Use the active source determined by probe
-        try:
-            if self._active_source == "TCBS":
-                df = self.tcbs.get_price_history(symbol, count_back)
-                if not df.empty:
-                    return df
-                # Fallback to VCI
-                df = self.vci.get_price_history(symbol, count_back)
-                return df
-            elif self._active_source == "VCI":
-                df = self.vci.get_price_history(symbol, count_back)
-                if not df.empty:
-                    return df
-                # Fallback to TCBS
-                df = self.tcbs.get_price_history(symbol, count_back)
-                return df
-            else:
-                # No source determined, try both
-                try:
-                    df = self.tcbs.get_price_history(symbol, count_back)
-                    if not df.empty:
-                        return df
-                except Exception:
-                    pass
-                try:
-                    df = self.vci.get_price_history(symbol, count_back)
-                    if not df.empty:
-                        return df
-                except Exception:
-                    pass
-                return pd.DataFrame()
+        # Try active source first, then fallbacks
+        sources_to_try = [self._active_source] if self._active_source else []
+        sources_to_try += [s for s in self.SOURCES if s != self._active_source]
 
-        except Exception as e:
-            if self._request_count <= 5:
-                print(f"   {symbol}: {type(e).__name__}: {e}")
-            return pd.DataFrame()
+        for source in sources_to_try:
+            if not source:
+                continue
+            try:
+                df = self._get_fetcher(source).get_price_history(symbol, days)
+                if not df.empty:
+                    return df
+            except Exception:
+                pass
+
+        return pd.DataFrame()
 
 
 class DataFetcher:
-    """Lay du lieu chung khoan Viet Nam - Top 300 ma - Multi-source"""
+    """Lay du lieu chung khoan Viet Nam - Top 300 ma"""
 
-    # === DANH SACH CO DINH ===
     VN100_SYMBOLS = [
-        # VN30
         'ACB', 'BCM', 'BID', 'BVH', 'CTG', 'FPT', 'GAS', 'GVR', 'HDB', 'HPG',
         'MBB', 'MSN', 'MWG', 'PLX', 'POW', 'SAB', 'SHB', 'SSB', 'SSI', 'STB',
         'TCB', 'TPB', 'VCB', 'VHM', 'VIB', 'VIC', 'VJC', 'VNM', 'VPB', 'VRE',
-        # VNMidCap (70 ma)
         'ANV', 'APH', 'ASM', 'BAF', 'BMP', 'BSR', 'BWE', 'CII', 'CMG', 'CTD',
         'DBC', 'DCM', 'DGC', 'DGW', 'DHC', 'DIG', 'DPM', 'DXG', 'DXS', 'EVF',
         'FCN', 'FRT', 'GEX', 'GMD', 'HAH', 'HCM', 'HDC', 'HDG', 'HSG', 'HT1',
@@ -284,7 +297,6 @@ class DataFetcher:
         'TIG', 'TNG', 'TVS', 'VC3', 'VCS', 'VGS', 'VIX', 'VLA', 'VMC', 'VNR',
     ]
 
-    # === MA BO SUNG de dat ~300 ===
     EXTRA_HOSE_SYMBOLS = [
         'AAA', 'ABB', 'AGG', 'AGR', 'APG', 'BCG', 'BFC', 'BHN', 'BIC', 'BMI',
         'BRC', 'BSI', 'BTS', 'BVB', 'CAV', 'CHP', 'CIG', 'CLC', 'CLW', 'CMX',
@@ -334,11 +346,11 @@ class DataFetcher:
     def fetch_all_data(self) -> pd.DataFrame:
         symbols = self.get_symbols()
 
-        # Probe which source works before fetching all
         print("\n🔍 Kiem tra nguon du lieu...")
         source = self.fetcher.probe_sources()
         if not source:
             print("❌ Khong the ket noi den bat ky nguon du lieu nao!")
+            print("   - DNSE: services.entrade.com.vn")
             print("   - TCBS: apiextaws.tcbs.com.vn")
             print("   - VCI:  trading.vietcap.com.vn")
             return pd.DataFrame()
@@ -402,7 +414,7 @@ class DataFetcher:
     def run(self) -> pd.DataFrame:
         print("=" * 60)
         print("📥 BAT DAU LAY DU LIEU - TOP 300 MA")
-        print("   Nguon: TCBS (primary) + VCI (fallback)")
+        print("   Nguon: DNSE (primary) + TCBS + VCI (fallback)")
         print("=" * 60)
 
         df = self.fetch_all_data()

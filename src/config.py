@@ -10,14 +10,10 @@ load_dotenv()
 # === API KEYS ===
 CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY", "").strip().replace("\n", "").replace("\r", "").replace(" ", "")
 
-# FiinQuant (legacy - kept for reference)
-FIINQUANT_USERNAME = os.getenv("FIINQUANT_USERNAME", "").strip()
-FIINQUANT_PASSWORD = os.getenv("FIINQUANT_PASSWORD", "").strip()
-
 # === DATA SETTINGS ===
 TOP_STOCKS_COUNT = 300  # Top 300 mã theo volume (HOSE + HNX)
 DATA_START_DATE = "2024-01-01"  # Ngày bắt đầu lấy dữ liệu
-DATA_SOURCE = "TCBS+VCI"  # Multi-source: TCBS primary + VCI fallback (free, no auth)
+DATA_SOURCE = "DNSE+TCBS+VCI"  # Multi-source: DNSE primary + TCBS/VCI fallback (free, no auth)
 
 # === INDEX SYMBOLS ===
 INDEX_SYMBOLS = ['VNINDEX', 'HNX-INDEX', 'VN30', 'UPCOM']
