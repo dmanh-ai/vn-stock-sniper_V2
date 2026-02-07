@@ -373,25 +373,33 @@ def make_fallback_sections(name, indicators):
     rsi = ind.get('rsi', 50)
     trend = ind.get('trend', 'N/A')
 
+    trend_vn = 'T\u0103ng' if trend == 'TANG' else ('Gi\u1ea3m' if trend == 'GIAM' else '\u0110i ngang')
+    vol_status = 't\u0103ng' if ind.get('vol_ratio', 1) > 1 else 'gi\u1ea3m'
+    rsi_status = 'Qu\u00e1 mua' if rsi and rsi > 70 else ('Qu\u00e1 b\u00e1n' if rsi and rsi < 30 else 'Trung t\u00ednh')
+    rsi_warn = 'c\u1ea9n th\u1eadn v\u00f9ng qu\u00e1 mua' if rsi and rsi > 65 else ('v\u00f9ng an to\u00e0n' if rsi and rsi > 35 else 'c\u1ea9n th\u1eadn v\u00f9ng qu\u00e1 b\u00e1n')
+    pos_rec = '\u01afu ti\u00ean Long' if trend == 'TANG' else ('\u01afu ti\u00ean Short/Cash' if trend == 'GIAM' else 'Ch\u1edd t\u00edn hi\u1ec7u r\u00f5 h\u01a1n')
+    squeeze_vn = 'C\u00d3' if ind.get('squeeze') else 'KH\u00d4NG'
+
+    IC = '\U0001f4cc'  # pushpin
     return [
-        {"title": "XU HUONG GIA", "icon": "\u{1f4c8}",
-         "content": f'<div class="conclusion-box"><span class="conclusion-icon">\u{1f4cc}</span><span class="conclusion-text">Xu h\u01b0\u1edbng {name}: {trend}. Gi\u00e1 hi\u1ec7n t\u1ea1i <span class="metric-number">{price:,.2f}</span>, thay \u0111\u1ed5i <span class="metric-number">{chg:+.2f}%</span></span></div><p class="content-paragraph">MA5: {ind.get("ma5","N/A")}, MA20: {ind.get("ma20","N/A")}, MA50: {ind.get("ma50","N/A")}</p>'},
-        {"title": "XU HUONG KHOI LUONG", "icon": "\u{1f4ca}",
-         "content": f'<div class="conclusion-box"><span class="conclusion-icon">\u{1f4cc}</span><span class="conclusion-text">Kh\u1ed1i l\u01b0\u1ee3ng phi\u00ean cu\u1ed1i: <span class="metric-number">{ind.get("vol_last",0):,.0f}</span>. Vol ratio: <span class="metric-number">{ind.get("vol_ratio",1):.2f}x</span> so v\u1edbi MA20.</span></div>'},
-        {"title": "KET HOP GIA - KHOI LUONG", "icon": "\u{1f4b9}",
-         "content": f'<div class="conclusion-box"><span class="conclusion-icon">\u{1f4cc}</span><span class="conclusion-text">Gi\u00e1 {trend.lower()}, volume {"t\u0103ng" if ind.get("vol_ratio",1)>1 else "gi\u1ea3m"} so v\u1edbi trung b\u00ecnh.</span></div>'},
+        {"title": "XU HUONG GIA", "icon": "\U0001f4c8",
+         "content": f'<div class="conclusion-box"><span class="conclusion-icon">{IC}</span><span class="conclusion-text">Xu h\u01b0\u1edbng {name}: {trend_vn}. Gi\u00e1 hi\u1ec7n t\u1ea1i <span class="metric-number">{price:,.2f}</span>, thay \u0111\u1ed5i <span class="metric-number">{chg:+.2f}%</span></span></div><p class="content-paragraph">MA5: {ind.get("ma5","N/A")}, MA20: {ind.get("ma20","N/A")}, MA50: {ind.get("ma50","N/A")}</p>'},
+        {"title": "XU HUONG KHOI LUONG", "icon": "\U0001f4ca",
+         "content": f'<div class="conclusion-box"><span class="conclusion-icon">{IC}</span><span class="conclusion-text">Kh\u1ed1i l\u01b0\u1ee3ng phi\u00ean cu\u1ed1i: <span class="metric-number">{ind.get("vol_last",0):,.0f}</span>. Vol ratio: <span class="metric-number">{ind.get("vol_ratio",1):.2f}x</span> so v\u1edbi MA20.</span></div>'},
+        {"title": "KET HOP GIA - KHOI LUONG", "icon": "\U0001f4b9",
+         "content": f'<div class="conclusion-box"><span class="conclusion-icon">{IC}</span><span class="conclusion-text">Gi\u00e1 {trend_vn.lower()}, volume {vol_status} so v\u1edbi trung b\u00ecnh.</span></div>'},
         {"title": "CUNG-CAU", "icon": "\u2696\ufe0f",
-         "content": f'<div class="conclusion-box"><span class="conclusion-icon">\u{1f4cc}</span><span class="conclusion-text">RSI: <span class="metric-number">{rsi}</span> - {"Qu\u00e1 mua" if rsi and rsi>70 else "Qu\u00e1 b\u00e1n" if rsi and rsi<30 else "Trung t\u00ednh"}. MACD: {"Bullish" if ind.get("macd_bullish") else "Bearish"}.</span></div>'},
-        {"title": "MUC GIA QUAN TRONG", "icon": "\u{1f3af}",
-         "content": f'<div class="conclusion-box"><span class="conclusion-icon">\u{1f4cc}</span><span class="conclusion-text">H\u1ed7 tr\u1ee3 50 phi\u00ean: <span class="metric-number">{ind.get("support_50d","N/A")}</span>. Kh\u00e1ng c\u1ef1 50 phi\u00ean: <span class="metric-number">{ind.get("resistance_50d","N/A")}</span>.</span></div>'},
-        {"title": "BIEN DONG GIA", "icon": "\u{1f4c9}",
-         "content": f'<div class="conclusion-box"><span class="conclusion-icon">\u{1f4cc}</span><span class="conclusion-text">ATR: <span class="metric-number">{ind.get("atr","N/A")}</span> ({ind.get("atr_pct",0):.2f}%). BB Width: <span class="metric-number">{ind.get("bb_width_pct",0):.1f}%</span>. Squeeze: {"C\u00d3" if ind.get("squeeze") else "KH\u00d4NG"}.</span></div>'},
+         "content": f'<div class="conclusion-box"><span class="conclusion-icon">{IC}</span><span class="conclusion-text">RSI: <span class="metric-number">{rsi}</span> - {rsi_status}. MACD: {"Bullish" if ind.get("macd_bullish") else "Bearish"}.</span></div>'},
+        {"title": "MUC GIA QUAN TRONG", "icon": "\U0001f3af",
+         "content": f'<div class="conclusion-box"><span class="conclusion-icon">{IC}</span><span class="conclusion-text">H\u1ed7 tr\u1ee3 50 phi\u00ean: <span class="metric-number">{ind.get("support_50d","N/A")}</span>. Kh\u00e1ng c\u1ef1 50 phi\u00ean: <span class="metric-number">{ind.get("resistance_50d","N/A")}</span>.</span></div>'},
+        {"title": "BIEN DONG GIA", "icon": "\U0001f4c9",
+         "content": f'<div class="conclusion-box"><span class="conclusion-icon">{IC}</span><span class="conclusion-text">ATR: <span class="metric-number">{ind.get("atr","N/A")}</span> ({ind.get("atr_pct",0):.2f}%). BB Width: <span class="metric-number">{ind.get("bb_width_pct",0):.1f}%</span>. Squeeze: {squeeze_vn}.</span></div>'},
         {"title": "RUI RO", "icon": "\u26a0\ufe0f",
-         "content": f'<div class="risk-box"><span class="risk-icon">\u26a0\ufe0f</span><span class="risk-text">C\u1ea7n theo d\u00f5i s\u00e1t xu h\u01b0\u1edbng. RSI {rsi}, {"c\u1ea9n th\u1eadn v\u00f9ng qu\u00e1 mua" if rsi and rsi>65 else "v\u00f9ng an to\u00e0n" if rsi and rsi>35 else "c\u1ea9n th\u1eadn v\u00f9ng qu\u00e1 b\u00e1n"}.</span></div>'},
-        {"title": "KHUYEN NGHI VI THE", "icon": "\u{1f3af}",
-         "content": f'<div class="action-box"><span class="action-icon">\u{1f3af}</span><span class="action-text">{"\u01afu ti\u00ean Long" if trend=="TANG" else "\u01afu ti\u00ean Short/Cash" if trend=="GIAM" else "Ch\u1edd t\u00edn hi\u1ec7u r\u00f5 h\u01a1n"}. Qu\u1ea3n l\u00fd r\u1ee7i ro ch\u1eb7t ch\u1ebd.</span></div>'},
-        {"title": "GIA MUC TIEU", "icon": "\u{1f3af}",
-         "content": f'<div class="conclusion-box"><span class="conclusion-icon">\u{1f4cc}</span><span class="conclusion-text">M\u1ee5c ti\u00eau t\u0103ng: <span class="metric-number">{ind.get("resistance_50d","N/A")}</span>. M\u1ee5c ti\u00eau gi\u1ea3m: <span class="metric-number">{ind.get("support_50d","N/A")}</span>.</span></div>'},
+         "content": f'<div class="risk-box"><span class="risk-icon">\u26a0\ufe0f</span><span class="risk-text">C\u1ea7n theo d\u00f5i s\u00e1t xu h\u01b0\u1edbng. RSI {rsi}, {rsi_warn}.</span></div>'},
+        {"title": "KHUYEN NGHI VI THE", "icon": "\U0001f3af",
+         "content": f'<div class="action-box"><span class="action-icon">\U0001f3af</span><span class="action-text">{pos_rec}. Qu\u1ea3n l\u00fd r\u1ee7i ro ch\u1eb7t ch\u1ebd.</span></div>'},
+        {"title": "GIA MUC TIEU", "icon": "\U0001f3af",
+         "content": f'<div class="conclusion-box"><span class="conclusion-icon">{IC}</span><span class="conclusion-text">M\u1ee5c ti\u00eau t\u0103ng: <span class="metric-number">{ind.get("resistance_50d","N/A")}</span>. M\u1ee5c ti\u00eau gi\u1ea3m: <span class="metric-number">{ind.get("support_50d","N/A")}</span>.</span></div>'},
     ]
 
 
@@ -401,15 +409,17 @@ def make_fallback_overview(all_indicators):
     for k, ind in all_indicators.items():
         lines.append(f'{k.upper()}: {ind.get("last_price","N/A")} ({ind.get("change_pct",0):+.2f}%)')
 
+    IC = '\U0001f4cc'
+    summary = ' | '.join(lines)
     return [
-        {"title": "TONG QUAN THI TRUONG", "icon": "\u{1f4ca}",
-         "content": f'<div class="conclusion-box"><span class="conclusion-icon">\u{1f4cc}</span><span class="conclusion-text">T\u1ed5ng quan th\u1ecb tr\u01b0\u1eddng - D\u1eef li\u1ec7u t\u1eeb DNSE API</span></div><p class="content-paragraph">{" | ".join(lines)}</p>'},
-        {"title": "XEP HANG CHI SO", "icon": "\u{1f3c6}",
-         "content": '<div class="conclusion-box"><span class="conclusion-icon">\u{1f4cc}</span><span class="conclusion-text">X\u1ebfp h\u1ea1ng c\u00e1c ch\u1ec9 s\u1ed1 theo s\u1ee9c m\u1ea1nh t\u01b0\u01a1ng \u0111\u1ed1i.</span></div>'},
+        {"title": "TONG QUAN THI TRUONG", "icon": "\U0001f4ca",
+         "content": f'<div class="conclusion-box"><span class="conclusion-icon">{IC}</span><span class="conclusion-text">T\u1ed5ng quan th\u1ecb tr\u01b0\u1eddng - D\u1eef li\u1ec7u t\u1eeb DNSE API</span></div><p class="content-paragraph">{summary}</p>'},
+        {"title": "XEP HANG CHI SO", "icon": "\U0001f3c6",
+         "content": f'<div class="conclusion-box"><span class="conclusion-icon">{IC}</span><span class="conclusion-text">X\u1ebfp h\u1ea1ng c\u00e1c ch\u1ec9 s\u1ed1 theo s\u1ee9c m\u1ea1nh t\u01b0\u01a1ng \u0111\u1ed1i.</span></div>'},
         {"title": "RUI RO HE THONG", "icon": "\u26a0\ufe0f",
          "content": '<div class="risk-box"><span class="risk-icon">\u26a0\ufe0f</span><span class="risk-text">C\u1ea7n theo d\u00f5i s\u00e1t di\u1ec5n bi\u1ebfn th\u1ecb tr\u01b0\u1eddng. Qu\u1ea3n l\u00fd r\u1ee7i ro ch\u1eb7t ch\u1ebd.</span></div>'},
-        {"title": "KHUYEN NGHI CHUNG", "icon": "\u{1f3af}",
-         "content": '<div class="action-box"><span class="action-icon">\u{1f3af}</span><span class="action-text">Giao d\u1ecbch theo xu h\u01b0\u1edbng. Kh\u00f4ng FOMO. \u0110\u1eb7t stop loss.</span></div>'},
+        {"title": "KHUYEN NGHI CHUNG", "icon": "\U0001f3af",
+         "content": '<div class="action-box"><span class="action-icon">\U0001f3af</span><span class="action-text">Giao d\u1ecbch theo xu h\u01b0\u1edbng. Kh\u00f4ng FOMO. \u0110\u1eb7t stop loss.</span></div>'},
     ]
 
 
