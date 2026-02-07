@@ -17,7 +17,7 @@ FIINQUANT_PASSWORD = os.getenv("FIINQUANT_PASSWORD", "").strip()
 # === DATA SETTINGS ===
 TOP_STOCKS_COUNT = 300  # Top 300 mã theo volume (HOSE + HNX)
 DATA_START_DATE = "2024-01-01"  # Ngày bắt đầu lấy dữ liệu
-DATA_SOURCE = "ENTRADE"  # Nguồn dữ liệu: Entrade (DNSE) REST API
+DATA_SOURCE = "TCBS"  # Nguồn dữ liệu: TCBS Public API (free, no auth)
 
 # === INDEX SYMBOLS ===
 INDEX_SYMBOLS = ['VNINDEX', 'HNX-INDEX', 'VN30', 'UPCOM']

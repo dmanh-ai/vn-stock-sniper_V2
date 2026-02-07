@@ -1,10 +1,10 @@
 """
 VN Stock Sniper - Data Fetcher V8
 Universe: Top ~300 mã theo volume (HOSE + HNX)
-Source: Entrade (DNSE) REST API - Không cần đăng nhập
+Source: TCBS Public API - Không cần đăng nhập
 
-Endpoint: https://services.entrade.com.vn/stock-price-service/v2/ohlc
-  - Params: symbol, resolution (1D), from (unix), to (unix)
+Endpoint: https://apipubaws.tcbs.com.vn/stock-insight/v1/stock/bars-long-term
+  - Params: ticker, type=stock, resolution=D, from (unix), to (unix)
   - Free, public, no auth required
 """
 
@@ -20,14 +20,14 @@ from src.config import (
     DATA_START_DATE, DATA_DIR, RAW_DATA_FILE, TOP_STOCKS_COUNT
 )
 
-# Entrade API
-ENTRADE_BASE_URL = "https://services.entrade.com.vn/stock-price-service/v2/ohlc"
-REQUEST_DELAY = 0.3  # 300ms giữa mỗi request (tránh bị block)
+# TCBS API
+TCBS_BASE_URL = "https://apipubaws.tcbs.com.vn/stock-insight/v1/stock/bars-long-term"
+REQUEST_DELAY = 0.15  # 150ms giữa mỗi request
 REQUEST_TIMEOUT = 15  # 15s timeout per request
 
 
-class EntradeFetcher:
-    """Lấy dữ liệu từ Entrade (DNSE) REST API - Free, no auth"""
+class TCBSFetcher:
+    """Lấy dữ liệu từ TCBS Public API - Free, no auth"""
 
     def __init__(self):
         self.session = requests.Session()
@@ -48,43 +48,52 @@ class EntradeFetcher:
         self._request_count += 1
 
     def get_price_history(self, symbol: str, days: int = 365) -> pd.DataFrame:
-        """Lấy lịch sử giá OHLCV từ Entrade"""
+        """Lấy lịch sử giá OHLCV từ TCBS"""
         self._throttle()
 
         to_ts = int(time.time())
         from_ts = int((datetime.now() - timedelta(days=days)).timestamp())
 
-        params = {
-            'symbol': symbol,
-            'resolution': '1D',
-            'from': from_ts,
-            'to': to_ts,
-        }
+        url = f"{TCBS_BASE_URL}?ticker={symbol}&type=stock&resolution=D&from={from_ts}&to={to_ts}"
 
         try:
-            resp = self.session.get(
-                ENTRADE_BASE_URL,
-                params=params,
-                timeout=REQUEST_TIMEOUT
-            )
+            resp = self.session.get(url, timeout=REQUEST_TIMEOUT)
             resp.raise_for_status()
             data = resp.json()
 
-            if not data or data.get('s') == 'no_data':
+            if not data or 'data' not in data or not data['data']:
                 return pd.DataFrame()
 
-            # Entrade trả về format: {t: [...], o: [...], h: [...], l: [...], c: [...], v: [...]}
-            if 't' in data and 'c' in data:
-                df = pd.DataFrame({
-                    'time': pd.to_datetime(data['t'], unit='s'),
-                    'open': data.get('o', data['c']),
-                    'high': data.get('h', data['c']),
-                    'low': data.get('l', data['c']),
-                    'close': data['c'],
-                    'volume': data.get('v', [0] * len(data['c'])),
-                })
-                df['symbol'] = symbol
-                return df
+            df = pd.DataFrame(data['data'])
+
+            # Chuẩn hóa columns
+            col_map = {}
+            for col in df.columns:
+                cl = col.lower()
+                if 'trading' in cl and 'date' in cl:
+                    col_map[col] = 'time'
+                elif cl == 'open':
+                    col_map[col] = 'open'
+                elif cl == 'high':
+                    col_map[col] = 'high'
+                elif cl == 'low':
+                    col_map[col] = 'low'
+                elif cl == 'close':
+                    col_map[col] = 'close'
+                elif cl == 'volume':
+                    col_map[col] = 'volume'
+
+            if col_map:
+                df = df.rename(columns=col_map)
+
+            if 'time' in df.columns:
+                df['time'] = pd.to_datetime(df['time'])
+
+            df['symbol'] = symbol
+
+            required = ['time', 'open', 'high', 'low', 'close', 'volume', 'symbol']
+            if all(c in df.columns for c in required):
+                return df[required]
 
             return pd.DataFrame()
 
@@ -99,7 +108,7 @@ class EntradeFetcher:
 
 
 class DataFetcher:
-    """Lấy dữ liệu chứng khoán Việt Nam - Top 300 mã - Entrade API"""
+    """Lấy dữ liệu chứng khoán Việt Nam - Top 300 mã - TCBS API"""
 
     # === DANH SÁCH CỐ ĐỊNH ===
     VN100_SYMBOLS = [
@@ -153,8 +162,8 @@ class DataFetcher:
     ]
 
     def __init__(self):
-        self.fetcher = EntradeFetcher()
-        print("✅ Entrade API: Sẵn sàng (no auth required)")
+        self.fetcher = TCBSFetcher()
+        print("✅ TCBS API: Sẵn sàng (no auth required)")
 
     def get_symbols(self) -> list:
         """Lấy danh sách ~300 mã (HOSE + HNX)"""
@@ -176,7 +185,7 @@ class DataFetcher:
         """Lấy dữ liệu tất cả mã từ Entrade"""
         symbols = self.get_symbols()
 
-        print(f"\n📥 Lấy dữ liệu {len(symbols)} mã từ Entrade (DNSE)...")
+        print(f"\n📥 Lấy dữ liệu {len(symbols)} mã từ TCBS...")
         print(f"⏰ Rate limit: {REQUEST_DELAY}s/req | Timeout: {REQUEST_TIMEOUT}s/mã\n")
 
         all_data = []
@@ -205,7 +214,7 @@ class DataFetcher:
         total = time.time() - t0
         print(f"\n{'='*50}")
         print(f"📊 {ok} ✅ / {fail} ❌ / {len(symbols)} tổng")
-        print(f"📡 Nguồn: Entrade (DNSE)")
+        print(f"📡 Nguồn: TCBS")
         print(f"⏱️ {total:.0f}s ({total/60:.1f} phút)")
         print(f"{'='*50}")
 
@@ -227,7 +236,7 @@ class DataFetcher:
     def run(self) -> pd.DataFrame:
         """Chạy lấy dữ liệu"""
         print("=" * 60)
-        print("📥 BẮT ĐẦU LẤY DỮ LIỆU - TOP 300 MÃ (Entrade API)")
+        print("📥 BẮT ĐẦU LẤY DỮ LIỆU - TOP 300 MÃ (TCBS API)")
         print("=" * 60)
 
         df = self.fetch_all_data()
