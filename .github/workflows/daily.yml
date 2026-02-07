@@ -40,7 +40,7 @@ jobs:
           errors = []
           for mod in ['pandas', 'numpy', 'matplotlib', 'scipy', 'plotly', 'fastdtw',
                       'sklearn', 'statsmodels', 'websocket', 'openpyxl', 'tqdm',
-                      'lxml', 'bs4', 'seaborn', 'requests', 'anthropic']:
+                      'lxml', 'bs4', 'seaborn', 'stumpy', 'requests', 'anthropic']:
               try:
                   __import__(mod)
               except ImportError as e:
