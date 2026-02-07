@@ -43,6 +43,18 @@ jobs:
           fi
           echo "Secrets OK"
 
+      - name: Verify data source connectivity
+        run: |
+          python -c "
+          from src.data_fetcher import MultiSourceFetcher
+          f = MultiSourceFetcher()
+          source = f.probe_sources()
+          if not source:
+              print('ERROR: No data source available!')
+              exit(1)
+          print(f'Data source OK: {source}')
+          "
+
       - name: Run VN Stock Sniper
         timeout-minutes: 45
         env:
